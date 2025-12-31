@@ -38,8 +38,8 @@ android {
         applicationId = "com.web.webide"
         minSdk = 29
         targetSdk = 36
-        versionCode = 21
-        versionName = "0.2.1"
+        versionCode = 22
+        versionName = "0.2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             //noinspection ChromeOsAbiSupport
@@ -97,6 +97,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -148,10 +149,17 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.ui)
     // LSP 支持
-    implementation(libs.editor.lsp)
-    implementation(libs.org.eclipse.lsp4j)
+    implementation(project(":editor-lsp"))
+    implementation(libs.lsp4j)
+    //脱唐
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+    //TreeSitter语言包
+    implementation(libs.tree.sitter)
+    implementation(libs.tree.sitter.json)
+
     // Editor
-    implementation(libs.editor)
+    implementation(project(":editor"))
+    implementation(project(":language-treesitter"))
     implementation(libs.language.textmate)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
