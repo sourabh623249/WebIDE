@@ -238,4 +238,3 @@ jobs:
           name: app-release-apks
           path: app/build/outputs/apks/release/*.apks
 
-
