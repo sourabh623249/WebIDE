@@ -77,6 +77,7 @@ import kotlinx.coroutines.withContext
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.web.webide.BuildConfig
+import com.web.webide.ui.components.WebIDE_Icon
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 
 // --- 1. 数据模型定义 ---
@@ -490,7 +491,6 @@ private fun DonorCard(item: Donor) {
         }
     }
 }
-// --- 原有辅助组件 ---
 
 @Composable
 private fun AuthorNoteCard(onClose: () -> Unit) {
@@ -538,18 +538,7 @@ private fun AppHeaderSection() {
                 .height(250.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_w),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-                )
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_code),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                WebIDE_Icon()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -872,3 +861,4 @@ fun LibraryDetailDialog(lib: Library, onDismiss: () -> Unit) {
         }
     }
 }
+
