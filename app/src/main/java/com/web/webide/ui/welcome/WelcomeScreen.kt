@@ -48,9 +48,9 @@ fun WelcomeScreen(
 
     var showColorPicker by remember { mutableStateOf(false) }
     var customColor by remember { mutableStateOf(themeState.customColor) }
-    var selectedModeIndex by remember { mutableStateOf(themeState.selectedModeIndex) }
+    var selectedModeIndex by remember { mutableIntStateOf(themeState.selectedModeIndex) }
     var selectedThemeIndex by remember {
-        mutableStateOf(if (themeState.isCustomTheme) themeColors.size else themeState.selectedThemeIndex)
+        mutableIntStateOf(if (themeState.isCustomTheme) themeColors.size else themeState.selectedThemeIndex)
     }
     var isMonetEnabled by remember { mutableStateOf(themeState.isMonetEnabled) }
 
