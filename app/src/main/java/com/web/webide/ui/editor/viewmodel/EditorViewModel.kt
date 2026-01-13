@@ -17,10 +17,8 @@ import com.itsaky.androidide.treesitter.json.TSLanguageJson
 import com.web.webide.core.utils.LogCatcher
 import com.web.webide.core.utils.PermissionManager
 import com.web.webide.ui.editor.EditorColorSchemeManager
-import com.web.webide.ui.editor.components.TextMateInitializer
-import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme
-import io.github.rosemoe.sora.langs.textmate.TextMateLanguage
-import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry
+import io.github.rosemoe.sora.lang.EmptyLanguage
+import io.github.rosemoe.sora.lang.styling.TextStyle
 import io.github.rosemoe.sora.text.Content
 import io.github.rosemoe.sora.text.ContentListener
 import io.github.rosemoe.sora.widget.CodeEditor
@@ -45,7 +43,6 @@ import io.github.rosemoe.sora.editor.ts.JavaScriptLanguage
 
 data class CodeEditorState(
     val file: File,
-    val languageScopeName: String, // 主要用于 TextMate 的标识
 ) {
     var content by mutableStateOf("")
     private var savedContent by mutableStateOf("")
@@ -94,9 +91,6 @@ class EditorViewModel : ViewModel() {
     // 编辑器实例缓存 (Key: 文件绝对路径)
     private val editorInstances = mutableMapOf<String, CodeEditor>()
 
-    // TextMate 支持的 Scope 列表 (用于回退判断)
-    private val supportedTextMateScopes = setOf("text.html.basic", "source.css", "source.js", "text.plain", "source.json")
-
     private var hasPermissions = false
     private lateinit var appContext: Context
 
@@ -127,12 +121,7 @@ class EditorViewModel : ViewModel() {
             }
         }
 
-        // 2. 确保 TextMate 初始化 (作为后备方案)
-        if (!TextMateInitializer.isReady()) {
-            TextMateInitializer.initialize(context)
-        }
-
-        // 3. 创建新的 CodeEditor 实例
+        // 2. 创建新的 CodeEditor 实例
         val editor = CodeEditor(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -146,11 +135,8 @@ class EditorViewModel : ViewModel() {
             // 设置初始内容
             setText(state.content)
 
-            // 初始化配色 (使用 TextMate 的主题作为基础)
-            colorScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
-
             // ------------------------------------------------------------
-            // 语言加载策略：TreeSitter (优) -> TextMate (良) -> Plain (差)
+            // 语言加载策略：TreeSitter (优) -> Plain (差)
             // ------------------------------------------------------------
             val fileExtension = state.file.extension.lowercase()
 
@@ -163,16 +149,8 @@ class EditorViewModel : ViewModel() {
                 // TreeSitter 必须手动配置彩虹括号的颜色，否则看不见
                 configureRainbowColors(colorScheme)
             } else {
-                // 回退到 TextMate
-                Log.d("EditorViewModel", "TreeSitter 不可用，回退到 TextMate: ${state.languageScopeName}")
-                if (state.languageScopeName in supportedTextMateScopes) {
-                    try {
-                        val language = TextMateLanguage.create(state.languageScopeName, true)
-                        setEditorLanguage(language)
-                    } catch (e: Exception) {
-                        LogCatcher.e("EditorViewModel", "TextMate 加载失败", e)
-                    }
-                }
+                Log.d("EditorViewModel", "TreeSitter 不可用，使用 Plain: $fileExtension")
+                setEditorLanguage(EmptyLanguage())
             }
             // ------------------------------------------------------------
 
@@ -202,12 +180,6 @@ class EditorViewModel : ViewModel() {
     // TreeSitter 加载逻辑
     // ======================================================
 
-    /**
-     * 尝试根据文件后缀加载 TreeSitter 语言
-     */
-    /**
-     * 尝试根据文件后缀加载 TreeSitter 语言
-     */
     /**
      * 尝试根据文件后缀加载 TreeSitter 语言
      */
@@ -250,7 +222,59 @@ class EditorViewModel : ViewModel() {
 
             // 5. 返回语言实例
             return TsLanguage(spec) {
-                // 这里可以留空
+                // Tree-sitter captures (e.g. keyword/string/tag) -> EditorColorScheme ids
+                // Without this mapping, all captures fallback to normalTextStyle and looks like "no highlight".
+
+                TextStyle.makeStyle(EditorColorScheme.TEXT_NORMAL) applyTo ""
+
+                TextStyle.makeStyle(EditorColorScheme.KEYWORD) applyTo "keyword"
+                TextStyle.makeStyle(EditorColorScheme.COMMENT) applyTo "comment"
+                TextStyle.makeStyle(EditorColorScheme.OPERATOR) applyTo arrayOf(
+                    "operator",
+                    "punctuation.bracket",
+                    "punctuation.delimiter",
+                    "punctuation.special",
+                )
+
+                val stringColorId = if (langFolderName == "html") {
+                    EditorColorScheme.ATTRIBUTE_VALUE
+                } else {
+                    EditorColorScheme.LITERAL
+                }
+                TextStyle.makeStyle(stringColorId) applyTo arrayOf(
+                    "string",
+                    "string.special",
+                )
+
+                TextStyle.makeStyle(EditorColorScheme.LITERAL) applyTo arrayOf(
+                    "number",
+                    "constant",
+                    "constant.builtin",
+                )
+
+                TextStyle.makeStyle(EditorColorScheme.FUNCTION_NAME) applyTo arrayOf(
+                    "function",
+                    "function.method",
+                    "function.builtin",
+                    "constructor",
+                )
+
+                TextStyle.makeStyle(EditorColorScheme.IDENTIFIER_VAR) applyTo arrayOf(
+                    "variable",
+                    "variable.builtin",
+                )
+
+                TextStyle.makeStyle(EditorColorScheme.IDENTIFIER_NAME) applyTo arrayOf(
+                    "property",
+                    "type",
+                )
+
+                TextStyle.makeStyle(EditorColorScheme.HTML_TAG) applyTo arrayOf(
+                    "tag",
+                    "tag.error",
+                )
+
+                TextStyle.makeStyle(EditorColorScheme.ATTRIBUTE_NAME) applyTo "attribute"
             }
 
         } catch (e: Throwable) {
@@ -356,25 +380,12 @@ class EditorViewModel : ViewModel() {
                         ""
                     }
                 }
-                val language = getLanguageScope(file.extension)
-                val newState = CodeEditorState(file = file, languageScopeName = language)
+                val newState = CodeEditorState(file = file)
                 newState.onContentLoaded(content)
                 openFiles = openFiles + newState
                 activeFileIndex = openFiles.lastIndex
             }
         }
-    }
-
-    // 给 TextMate 用的映射
-    private fun getLanguageScope(extension: String): String = when (extension.lowercase()) {
-        "html", "htm" -> "text.html.basic"
-        "css" -> "source.css"
-        "js" -> "source.js"
-        "json" -> "source.json"
-        "java" -> "source.java"
-        "kt", "kts" -> "source.kotlin"
-        "xml" -> "text.xml"
-        else -> "text.plain"
     }
 
     suspend fun saveAllModifiedFiles(snackbarHostState: SnackbarHostState) {
@@ -599,3 +610,6 @@ class EditorViewModel : ViewModel() {
         editorInstances.clear()
     }
 }
+
+
+

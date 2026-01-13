@@ -341,6 +341,15 @@ public class EditorColorScheme {
             case LITERAL:
                 color = 0xFF008080;
                 break;
+            case HTML_TAG:
+                color = 0xFF2196F3;
+                break;
+            case ATTRIBUTE_NAME:
+                color = 0xFF03A9F4;
+                break;
+            case ATTRIBUTE_VALUE:
+                color = 0xFF008080;
+                break;
             case SCROLL_BAR_THUMB:
                 color = 0xffd8d8d8;
                 break;
@@ -558,3 +567,4 @@ public class EditorColorScheme {
     }
 
 }
+
