@@ -6,7 +6,8 @@
       "scopeName": "text.html.basic",
       "languageConfiguration": "textmate/html/language-configuration.json",
       "embeddedLanguages": {
-        "source.js": "javascript"
+        "source.js": "javascript",
+        "source.css": "css"
       }
     },
     {
@@ -14,12 +15,6 @@
       "name": "javascript",
       "scopeName": "source.js",
       "languageConfiguration": "textmate/javascript/language-configuration.json"
-    },
-    {
-      "grammar": "textmate/json/syntaxes/JSON.tmLanguage.json",
-      "name": "json",
-      "scopeName": "source.json",
-      "languageConfiguration": "textmate/json/language-configuration.json"
     },
     {
      "grammar": "textmate/css/syntaxes/css.tmLanguage.json",

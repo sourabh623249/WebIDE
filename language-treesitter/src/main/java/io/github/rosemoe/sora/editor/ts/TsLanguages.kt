@@ -40,18 +40,3 @@ class JavaScriptLanguage : TSLanguage("javascript", tree_sitter_javascript()) {
     }
 }
 
-/**
- * JSON 语言绑定
- */
-class JsonLanguage : TSLanguage("json", tree_sitter_json()) {
-    private companion object {
-        init {
-            try {
-                System.loadLibrary("tree-sitter-json")
-            } catch (e: UnsatisfiedLinkError) {
-                e.printStackTrace()
-            }
-        }
-        @JvmStatic external fun tree_sitter_json(): Long
-    }
-}

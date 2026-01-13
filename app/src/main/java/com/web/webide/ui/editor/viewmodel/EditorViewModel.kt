@@ -12,6 +12,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.itsaky.androidide.treesitter.TSLanguage
+import com.itsaky.androidide.treesitter.json.TSLanguageJson
 import com.web.webide.core.utils.LogCatcher
 import com.web.webide.core.utils.PermissionManager
 import com.web.webide.ui.editor.EditorColorSchemeManager
@@ -33,8 +35,7 @@ import java.io.InputStreamReader
 // TreeSitter 相关导入
 import io.github.rosemoe.sora.editor.ts.TsLanguage
 import io.github.rosemoe.sora.editor.ts.TsLanguageSpec
-import com.itsaky.androidide.treesitter.TSLanguage
-import com.itsaky.androidide.treesitter.json.TSLanguageJson
+
 import io.github.rosemoe.sora.editor.ts.CssLanguage
 import io.github.rosemoe.sora.editor.ts.HtmlLanguage
 import io.github.rosemoe.sora.editor.ts.JavaScriptLanguage
@@ -218,7 +219,6 @@ class EditorViewModel : ViewModel() {
                 "css" -> CssLanguage()
                 "js", "javascript" -> JavaScriptLanguage()
 
-                // 【修复点 1】 使用 TSLanguageJson.getInstance()
                 "json", "JSON" -> TSLanguageJson.getInstance()
 
                 else -> return null
