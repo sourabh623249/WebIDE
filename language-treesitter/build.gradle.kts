@@ -31,10 +31,30 @@ plugins {
 android {
     namespace = "io.github.rosemoe.sora.ts"
     compileSdk = 36
+
     defaultConfig {
+        minSdk = 21
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        // Build x86_64 Tree-sitter .so for emulator
+        ndk {
+            abiFilters += listOf("x86_64")
+        }
+
+        externalNativeBuild {
+            cmake {
+                // Fetch grammar sources via CMake FetchContent
+            }
+        }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -45,6 +65,7 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+
     buildTypes {
         release {
             isMinifyEnabled = false
