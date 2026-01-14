@@ -149,6 +149,7 @@ fun AboutScreen(navController: NavController) {
         listOf(
             Developer("h465855hgg", "Lead", "Maintainer", Color(0xFF009688), "https://github.com/h465855hgg"),
             Developer("Akimlc", "Theme", "", Color(0xFF009688), "https://github.com/Akimlc"),
+            Developer("wuxianggujun", "TsLanguage", "", Color(0xFF009688), "https://github.com/wuxianggujun"),
             Developer("Claude", "UI", "Design", Color(0xFFD97757)),
             Developer("Gemini", "Arch", "Core", Color(0xFF4E8CFF)),
             Developer("DeepSeek", "Logic", "Editor", Color(0xFF6C5CE7))
