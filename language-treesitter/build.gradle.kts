@@ -37,9 +37,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
 
-        // Build x86_64 Tree-sitter .so for emulator
+        // Build Tree-sitter .so for emulator and real devices
         ndk {
-            abiFilters += listOf("x86_64")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
         }
 
         externalNativeBuild {
