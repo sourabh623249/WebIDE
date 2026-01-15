@@ -149,6 +149,7 @@ fun AboutScreen(navController: NavController) {
         listOf(
             Developer("h465855hgg", "Lead", "Maintainer", Color(0xFF009688), "https://github.com/h465855hgg"),
             Developer("Akimlc", "Theme", "", Color(0xFF009688), "https://github.com/Akimlc"),
+            Developer("wuxianggujun", "TsLanguage", "", Color(0xFF009688), "https://github.com/wuxianggujun"),
             Developer("Claude", "UI", "Design", Color(0xFFD97757)),
             Developer("Gemini", "Arch", "Core", Color(0xFF4E8CFF)),
             Developer("DeepSeek", "Logic", "Editor", Color(0xFF6C5CE7))
@@ -171,6 +172,13 @@ fun AboutScreen(navController: NavController) {
                 title = "Special Thanks",
                 message = "感谢WebS的api文档 命名规则.",// 或者是 "Provided naming conventions for WebS API docs."
               // url = "https://user.qzone.qq.com/2084019782"
+            ),
+            SpecialThanks(
+                qq = "2957148920",
+                name = "海纳百氚，有容乃大",
+                title = "吉祥物",
+                message = "喵喵喵喵喵喵"
+                // url = "https://user.qzone.qq.com/2957148920"
             )
         )
     }
@@ -178,9 +186,11 @@ fun AboutScreen(navController: NavController) {
     // 3. 捐赠名单
     val donorList = remember {
         listOf(
-            Donor("2051775505", "・是小浣熊哦・", "¥ 45.20", "2025.12"),
+            Donor("2051775505", "・是小浣熊哦・", "¥ 55.20", "2025.12"),
             Donor("3268208143","肘开（有事电话）","¥ 20.00","2026.1") ,
-            Donor("2957148920","海纳百氚，有容乃大","¥ 8.88","2026.01.05.10:56")
+            Donor("2957148920","海纳百氚，有容乃大","¥ 12.21","2026.01.05.10:56, 2026.01.12.17:49"),
+            Donor("3658267351","黑桃信息科技","¥ 3.00","2026.01.09.12:41")
+
 
         )
     }

@@ -52,6 +52,7 @@ import java.io.Closeable
  * @param predicates Client custom predicate implementations
  */
 open class TsLanguageSpec(
+
     val language: TSLanguage,
     highlightScmSource: String,
     codeBlocksScmSource: String = "",
@@ -60,6 +61,12 @@ open class TsLanguageSpec(
     localsCaptureSpec: LocalsCaptureSpec = LocalsCaptureSpec.DEFAULT,
     val predicates: List<TsPredicate> = listOf(MatchPredicate)
 ) : Closeable {
+
+    companion object {
+        init {
+            TreeSitterNativeLoader.ensureLoaded()
+        }
+    }
 
     /**
      * Whether to color brackets by nesting depth (rainbow brackets).
@@ -210,3 +217,5 @@ open class TsLanguageSpec(
     }
 
 }
+
+
