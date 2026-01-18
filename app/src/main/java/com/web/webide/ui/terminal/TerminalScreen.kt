@@ -8,6 +8,8 @@ import android.widget.EditText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,18 +26,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.doOnTextChanged
 import com.termux.view.TerminalView
 import java.lang.ref.WeakReference
-
-// rk imports
 import com.rk.terminal.ui.screens.terminal.TerminalBackEnd
-import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysView
-import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysInfo
-import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysListener
-import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysConstants
 import com.rk.libcommons.application
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,8 +82,8 @@ fun TerminalScreen() {
     }
 
     val currentSession = SessionManager.currentSession
+    // 只需要持有 TerminalView 的引用，用于发送按键事件
     var terminalViewRef by remember { mutableStateOf<WeakReference<TerminalView>?>(null) }
-    var virtualKeysViewRef by remember { mutableStateOf<WeakReference<VirtualKeysView>?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
 
@@ -171,7 +168,7 @@ fun TerminalScreen() {
                             view.setTerminalViewClient(client)
                             currentSession.updateTerminalSessionClient(client)
                             view.onScreenUpdated()
-                            virtualKeysViewRef?.get()?.virtualKeysViewClient = VirtualKeysListener(currentSession)
+                            // 🔥 这里删除了对 virtualKeysViewRef 的引用，因为我们改用 Compose 实现了
                         }
                     }
                 )
@@ -183,8 +180,6 @@ fun TerminalScreen() {
                 modifier = Modifier.fillMaxWidth() // 高度自适应
             ) {
                 val pagerState = rememberPagerState(pageCount = { 2 })
-                val onSurfaceColor = MaterialTheme.colorScheme.onSurface.toArgb()
-                val primaryColor = MaterialTheme.colorScheme.primary.toArgb()
 
                 HorizontalPager(
                     state = pagerState,
@@ -192,21 +187,81 @@ fun TerminalScreen() {
                 ) { page ->
                     when (page) {
                         0 -> {
-                            AndroidView(
-                                modifier = Modifier.fillMaxSize(),
-                                factory = { ctx ->
-                                    VirtualKeysView(ctx, null).apply {
-                                        virtualKeysViewRef = WeakReference(this)
-                                        buttonTextColor = onSurfaceColor
-                                        buttonActiveTextColor = primaryColor
-                                        buttonBackgroundColor = android.graphics.Color.TRANSPARENT
-                                        buttonActiveBackgroundColor = primaryColor and 0x33FFFFFF
-                                        virtualKeysViewClient = VirtualKeysListener(currentSession)
-                                        reload(VirtualKeysInfo(VIRTUAL_KEYS_CONFIG, "", VirtualKeysConstants.CONTROL_CHARS_ALIASES))
+                            // === 🔥 Compose 自定义按键栏 (修复 CTRL/ALT 问题) ===
+
+                            // 定义 CTRL 和 ALT 的状态
+                            var isCtrlPressed by remember { mutableStateOf(false) }
+                            var isAltPressed by remember { mutableStateOf(false) }
+
+                            // 获取所有按键
+                            val allKeys = KEY_PAGES.flatten()
+
+                            LazyRow(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(allKeys) { key ->
+                                    // 按钮激活状态样式
+                                    val isActive = (key.label == "CTRL" && isCtrlPressed) || (key.label == "ALT" && isAltPressed)
+                                    val backgroundColor = if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent
+                                    val contentColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+
+                                    Box(
+                                        modifier = Modifier
+                                            .height(40.dp)
+                                            .defaultMinSize(minWidth = 40.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(backgroundColor)
+                                            .clickable {
+                                                // === 按键逻辑处理 ===
+                                                val session = currentSession ?: return@clickable
+
+                                                if (key.label == "CTRL") {
+                                                    isCtrlPressed = !isCtrlPressed
+                                                    return@clickable
+                                                }
+                                                if (key.label == "ALT") {
+                                                    isAltPressed = !isAltPressed
+                                                    return@clickable
+                                                }
+
+                                                var output = key.output ?: key.label
+
+                                                // 处理 CTRL 组合键
+                                                if (isCtrlPressed) {
+                                                    // 如果是单个字符 (如 a-z, -, [ 等)
+                                                    if (output.length == 1) {
+                                                        val charCode = output.uppercase()[0].code
+                                                        // ASCII 控制字符映射: A(65) -> 1
+                                                        if (charCode in 64..95) {
+                                                            output = (charCode - 64).toChar().toString()
+                                                        } else if (charCode in 97..122) { // 处理小写 a-z
+                                                            output = (charCode - 96).toChar().toString()
+                                                        }
+                                                    }
+                                                    isCtrlPressed = false // 按下一次后重置
+                                                }
+
+                                                // 处理 ALT 组合键 (通常发送 ESC + 键)
+                                                if (isAltPressed) {
+                                                    output = "\u001b$output"
+                                                    isAltPressed = false
+                                                }
+
+                                                session.write(output)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = key.label,
+                                            color = contentColor,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 12.dp)
+                                        )
                                     }
-                                },
-                                update = { v -> v.buttonTextColor = onSurfaceColor }
-                            )
+                                }
+                            }
                         }
                         1 -> {
                             var text by rememberSaveable { mutableStateOf("") }
@@ -244,16 +299,36 @@ fun TerminalScreen() {
     }
 }
 
-private const val VIRTUAL_KEYS_CONFIG = """
-[
-  [
-    "ESC",
-    {"key": "/", "popup": "\\"},
-    {"key": "-", "popup": "|"},
-    "HOME", "UP", "END", "PGUP"
-  ],
-  [
-    "TAB", "CTRL", "ALT", "LEFT", "DOWN", "RIGHT", "PGDN"
-  ]
-]
-"""
+// === 按键数据模型 ===
+
+data class VirtualKey(
+    val label: String,      // 显示的文字，如 "TAB"
+    val output: String?,    // 直接输出的内容，如 "\t"。如果是特殊功能键(CTRL)则为 null
+    val isToggle: Boolean = false // 是否是切换键 (CTRL, ALT)
+)
+
+// 定义按键布局
+val KEY_PAGES = listOf(
+    // 第一页
+    listOf(
+        VirtualKey("ESC", "\u001b"),
+        VirtualKey("↹", "\t"), // TAB
+        VirtualKey("CTRL", null, true),
+        VirtualKey("ALT", null, true),
+        VirtualKey("-", "-"),
+        VirtualKey("▼", "\u001b[B"), // 下箭头
+        VirtualKey("▲", "\u001b[A")  // 上箭头
+    ),
+    // 第二页
+    listOf(
+        VirtualKey("/", "/"),
+        VirtualKey("Home", "\u001b[H"),
+        VirtualKey("End", "\u001b[F"),
+        VirtualKey("PgUp", "\u001b[5~"),
+        VirtualKey("PgDn", "\u001b[6~"),
+        VirtualKey("◀", "\u001b[D"), // 左箭头
+        VirtualKey("▶", "\u001b[C")  // 右箭头
+    )
+)
+
+// 🔥 已删除 SmartVirtualKeysListener 类，避免编译错误

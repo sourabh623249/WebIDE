@@ -3,11 +3,13 @@
 package com.web.webide.ui.terminal
 
 import android.content.Context
+import android.os.Build
 import com.rk.terminal.ui.screens.terminal.stat
 import com.rk.terminal.ui.screens.terminal.vmstat
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
+import com.web.webide.core.utils.WorkspaceManager
 import java.io.File
 import java.io.FileOutputStream
 
@@ -148,7 +150,21 @@ object AlpineManager {
             initHostScript.setExecutable(true)
             File(binDir, "init").setExecutable(true)
         }
-
+        val workspacePath = WorkspaceManager.getWorkspacePath(context)
+        var versionName = "Unknown"
+        var versionCode = 0L
+        try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            versionName = pInfo.versionName ?: "Unknown"
+            versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode.toLong()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         // 2. 环境变量 (宿主环境)
         val env = mutableListOf(
             "PATH=${System.getenv("PATH")}:/sbin:${binDir.absolutePath}",
@@ -160,7 +176,12 @@ object AlpineManager {
             // 尝试适配不同架构的 linker
             "LINKER=${if(File("/system/bin/linker64").exists()) "/system/bin/linker64" else "/system/bin/linker"}",
             "PROOT_TMP_DIR=${context.cacheDir.absolutePath}",
-            "TMPDIR=${context.cacheDir.absolutePath}"
+            "TMPDIR=${context.cacheDir.absolutePath}",
+
+            //自定义环境变量
+            "WEBIDE_VERSION_NAME=$versionName",
+            "WEBIDE_VERSION_CODE=$versionCode",
+            "WEBIDE_WORKSPACE=$workspacePath"
         )
 
         // 注入 Loader
