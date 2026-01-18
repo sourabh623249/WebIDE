@@ -69,7 +69,8 @@ data class FileNode(
 fun FileTree(
     rootPath: String,
     modifier: Modifier = Modifier,
-    onFileClick: (File) -> Unit
+    onFileClick: (File) -> Unit,
+    onFileRenamed: (oldFile: File, newFile: File) -> Unit = { _, _ -> }
 ) {
     var rootFiles by remember { mutableStateOf<List<FileNode>>(emptyList()) }
     val scope = rememberCoroutineScope()
@@ -85,7 +86,8 @@ fun FileTree(
 
     var itemWidths by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     val maxContentWidth = itemWidths.values.maxOrNull() ?: 0
-    val viewportWidthPx = if (containerWidth > 0) containerWidth - with(density) { (sideMargin * 2).toPx() } else 0f
+    val viewportWidthPx =
+        if (containerWidth > 0) containerWidth - with(density) { (sideMargin * 2).toPx() } else 0f
     val isHorizontalScrollEnabled = maxContentWidth > viewportWidthPx && containerWidth > 0
     val horizontalScrollState = rememberScrollState()
 
@@ -207,7 +209,10 @@ fun FileTree(
         ) {
             FileActionBottomSheet(
                 node = selectedFileNode!!,
-                onDismiss = { scope.launch { sheetState.hide() }.invokeOnCompletion { if (!sheetState.isVisible) showBottomSheet = false } },
+                onDismiss = {
+                    scope.launch { sheetState.hide() }
+                        .invokeOnCompletion { if (!sheetState.isVisible) showBottomSheet = false }
+                },
                 onDeleteRequest = { showDeleteConfirmationDialog = true },
                 onCreateFileRequest = { showCreateFileDialog = true },
                 onCreateFolderRequest = { showCreateFolderDialog = true },
@@ -222,50 +227,110 @@ fun FileTree(
             title = { Text("确认删除") },
             text = { Text("你确定要删除 “${selectedFileNode?.file?.name}” 吗？") },
             confirmButton = {
-                Button(onClick = {
-                    showDeleteConfirmationDialog = false
-                    showBottomSheet = false
-                    selectedFileNode?.let { node ->
-                        scope.launch {
-                            val parent = node.file.parentFile ?: File(rootPath)
-                            val success = withContext(Dispatchers.IO) { if (node.isDirectory) node.file.deleteRecursively() else node.file.delete() }
-                            if (success) refreshDirectory(parent)
+                Button(
+                    onClick = {
+                        showDeleteConfirmationDialog = false
+                        showBottomSheet = false
+                        selectedFileNode?.let { node ->
+                            scope.launch {
+                                val parent = node.file.parentFile ?: File(rootPath)
+                                val success =
+                                    withContext(Dispatchers.IO) { if (node.isDirectory) node.file.deleteRecursively() else node.file.delete() }
+                                if (success) refreshDirectory(parent)
+                            }
                         }
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("删除") }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirmationDialog = false }) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmationDialog = false }) {
+                    Text(
+                        "取消"
+                    )
+                }
+            }
         )
     }
     if (showCreateFileDialog) {
-        InputDialog(title = "新建文件", label = "文件名", onDismiss = { showCreateFileDialog = false }) { name ->
+        InputDialog(
+            title = "新建文件",
+            label = "文件名",
+            onDismiss = { showCreateFileDialog = false }) { name ->
             showCreateFileDialog = false; showBottomSheet = false
             selectedFileNode?.let { node ->
                 val parent = if (node.isDirectory) node.file else node.file.parentFile
-                parent?.let { scope.launch { withContext(Dispatchers.IO) { File(it, name).createNewFile() }; refreshDirectory(it) } }
+                parent?.let {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            File(
+                                it,
+                                name
+                            ).createNewFile()
+                        }; refreshDirectory(it)
+                    }
+                }
             }
         }
     }
     if (showCreateFolderDialog) {
-        InputDialog(title = "新建文件夹", label = "文件夹名", onDismiss = { showCreateFolderDialog = false }) { name ->
+        InputDialog(
+            title = "新建文件夹",
+            label = "文件夹名",
+            onDismiss = { showCreateFolderDialog = false }) { name ->
             showCreateFolderDialog = false; showBottomSheet = false
             selectedFileNode?.let { node ->
                 val parent = if (node.isDirectory) node.file else node.file.parentFile
-                parent?.let { scope.launch { withContext(Dispatchers.IO) { File(it, name).mkdirs() }; refreshDirectory(it) } }
+                parent?.let {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            File(
+                                it,
+                                name
+                            ).mkdirs()
+                        }; refreshDirectory(it)
+                    }
+                }
             }
         }
     }
     if (showRenameDialog) {
-        InputDialog(title = "重命名", label = "新名称", initialValue = selectedFileNode?.file?.name ?: "", onDismiss = { showRenameDialog = false }) { name ->
-            showRenameDialog = false; showBottomSheet = false
+        InputDialog(
+            title = "重命名",
+            label = "新名称",
+            initialValue = selectedFileNode?.file?.name ?: "",
+            onDismiss = { showRenameDialog = false }
+        ) { name ->
+            // 1. 关闭弹窗
+            showRenameDialog = false
+            showBottomSheet = false
+
             selectedFileNode?.let { node ->
                 val parent = node.file.parentFile
-                parent?.let { scope.launch { withContext(Dispatchers.IO) { node.file.renameTo(File(it, name)) }; refreshDirectory(it) } }
+                // 给这里的 it 起个名字叫 parentDir，避免混淆
+                parent?.let { parentDir ->
+                    scope.launch {
+                        val oldFile = node.file
+                        val newFile = File(parentDir, name)
+
+                        // 2. 在 IO 线程执行重命名
+                        val success = withContext(Dispatchers.IO) {
+                            oldFile.renameTo(newFile)
+                        }
+
+                        // 3. 根据结果刷新 UI
+                        if (success) {
+                            // 刷新当前文件夹视图
+                            refreshDirectory(parentDir)
+                            // 【关键】通知外部更新 Tabs
+                            onFileRenamed(oldFile, newFile)
+                        }
+                    }
+                }
             }
         }
     }
 }
-
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
