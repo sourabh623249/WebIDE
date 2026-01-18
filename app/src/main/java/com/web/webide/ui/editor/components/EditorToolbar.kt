@@ -78,7 +78,7 @@ private fun ToolbarItem(
     enabled: Boolean = true,
     colors: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
-    VerticalDivider(modifier = Modifier.padding(vertical = 12.dp).width(1.dp))
+   // VerticalDivider(modifier = Modifier.padding(vertical = 12.dp).width(1.dp))
 
     TextButton(
         onClick = onClick,
