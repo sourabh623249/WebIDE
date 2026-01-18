@@ -175,9 +175,9 @@ fun AboutScreen(navController: NavController) {
             ),
             SpecialThanks(
                 qq = "2957148920",
-                name = "海纳百氚，有容乃大",
+                name = "氚-Tritium",
                 title = "吉祥物",
-                message = "喵喵喵喵喵喵"
+                message = "issue提供者"
                 // url = "https://user.qzone.qq.com/2957148920"
             )
         )
@@ -188,7 +188,7 @@ fun AboutScreen(navController: NavController) {
         listOf(
             Donor("2051775505", "・是小浣熊哦・", "¥ 55.20", "2025.12"),
             Donor("3268208143","肘开（有事电话）","¥ 20.00","2026.1") ,
-            Donor("2957148920","海纳百氚，有容乃大","¥ 12.21","2026.01.05.10:56, 2026.01.12.17:49"),
+            Donor("2957148920","海纳百氚，有容乃大","¥ 23.32","2026.01.05.10:56, 2026.01.12.17:49, 2026.01.18.17:55"),
             Donor("3658267351","黑桃信息科技","¥ 3.00","2026.01.09.12:41")
 
 
