@@ -167,6 +167,9 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                     onFileClick = { file ->
                         viewModel.openFile(file)
                         scope.launch { drawerState.close() }
+                    },
+                    onFileRenamed = { oldFile, newFile ->
+                        viewModel.updateRenamedFile(oldFile, newFile)
                     }
                 )
             }
@@ -611,7 +614,7 @@ fun EditCode(
 }
 
 @Composable
-fun FileManagerDrawer(projectPath: String, onFileClick: (File) -> Unit) {
+fun FileManagerDrawer(projectPath: String, onFileClick: (File) -> Unit,onFileRenamed: (File, File) -> Unit ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
             "文件树",
@@ -621,7 +624,8 @@ fun FileManagerDrawer(projectPath: String, onFileClick: (File) -> Unit) {
         FileTree(
             rootPath = projectPath,
             modifier = Modifier.fillMaxSize(),
-            onFileClick = onFileClick
+            onFileClick = onFileClick,
+            onFileRenamed = onFileRenamed
         )
     }
 }
