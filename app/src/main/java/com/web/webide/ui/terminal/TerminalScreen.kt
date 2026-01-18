@@ -1,19 +1,17 @@
 package com.web.webide.ui.terminal
 
 import android.app.Application
-import android.graphics.Typeface
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -21,133 +19,312 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.doOnTextChanged
+import androidx.navigation.NavController
 import com.termux.view.TerminalView
 import java.lang.ref.WeakReference
 import com.rk.terminal.ui.screens.terminal.TerminalBackEnd
 import com.rk.libcommons.application
+import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysConstants
+import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysInfo
+import com.rk.terminal.ui.screens.terminal.virtualkeys.VirtualKeysView
+import com.web.webide.ui.terminal.TerminalConfig.VIRTUAL_KEYS_JSON
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen() {
+fun TerminalScreen(navController: NavController) {
     val context = LocalContext.current
-
-    // 🔥 新增状态：标记环境是否准备就绪
     var isEnvironmentReady by remember { mutableStateOf(false) }
+    val isSystemDark = isSystemInDarkTheme()
 
+    // === 初始化逻辑 ===
     LaunchedEffect(Unit) {
         if (application == null) application = context.applicationContext as Application
-
-        // 🔥 在 IO 线程执行资源复制和解压
         withContext(Dispatchers.IO) {
             SetupWorker.prepareEnvironment(context)
         }
-
-        // 环境准备好后，标记为 true
         isEnvironmentReady = true
-
-        // 只有在没有会话时才创建新会话
         if (SessionManager.sessions.isEmpty()) {
             SessionManager.addNewSession(context)
         }
     }
 
-    // 🔥 如果环境没准备好，显示加载进度条
     if (!isEnvironmentReady) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("正在初始化 Linux 环境 (首次运行可能需要几十秒)...")
-            }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
-        return // 🚨 提前返回，不渲染下面的终端组件
-    }
-
-    LaunchedEffect(Unit) {
-        if (application == null) application = context.applicationContext as Application
-        if (SessionManager.sessions.isEmpty()) SessionManager.addNewSession(context)
+        return
     }
 
     val currentSession = SessionManager.currentSession
-    // 只需要持有 TerminalView 的引用，用于发送按键事件
     var terminalViewRef by remember { mutableStateOf<WeakReference<TerminalView>?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    val buttonTextColor =
+        if (isSystemDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+    val buttonBgColor = if (isSystemDark) 0xFF21222C.toInt() else 0xFFE0E0E0.toInt()
 
-        // 1. 顶部 Tab
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp)
-                .background(MaterialTheme.colorScheme.surface),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SecondaryScrollableTabRow(
-                selectedTabIndex = SessionManager.currentSessionIndex,
-                containerColor = Color.Transparent,
-                edgePadding = 0.dp,
-                divider = {}, // 不显示默认底部分割线
-                modifier = Modifier.weight(1f),
-                indicator = {
-                    TabRowDefaults.SecondaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(SessionManager.currentSessionIndex),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            // 仅处理左右的安全区域，顶部和底部交给 topBar/bottomBar 处理
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
+
+        // === 顶部区域 ===
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .statusBarsPadding() // 1. 确保避开状态栏
             ) {
-                SessionManager.sessions.forEachIndexed { index, session ->
-                    val isSelected = SessionManager.currentSessionIndex == index
-                    Tab(
-                        selected = isSelected,
-                        onClick = { SessionManager.switchTo(index) },
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = session.title,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if(isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                // 1. 标题栏
+                TopAppBar(
+                    title = {
+                        Text(
+                            "Terminal",
+                            fontSize = 18.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
                             )
-                            if (isSelected) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    modifier = Modifier.size(14.dp).clickable { SessionManager.removeSession(session) },
-                                    tint = MaterialTheme.colorScheme.primary
+                        }
+                    },
+                    windowInsets = WindowInsets(0.dp),
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+
+                // 2. Tabs + Add Button
+                // 🔥 按照您的要求：
+                // 1. 设定固定高度 (45dp)，防止太大占地
+                // 2. 移除 CenterVertically，改为 Bottom (底对齐)，紧贴分割线
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(45.dp),
+                    verticalAlignment = Alignment.Bottom // 🔥 核心修改：底对齐
+                ) {
+                    if (SessionManager.sessions.isNotEmpty()) {
+                        SecondaryScrollableTabRow(
+                            selectedTabIndex = SessionManager.currentSessionIndex,
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            edgePadding = 0.dp,
+                            divider = {},
+                            modifier = Modifier.weight(1f),
+                            indicator = {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(SessionManager.currentSessionIndex),
+                                    height = 3.dp, // 指示条稍厚一点，更清晰
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        ) {
+                            SessionManager.sessions.forEachIndexed { index, session ->
+                                val isSelected = SessionManager.currentSessionIndex == index
+                                Tab(
+                                    selected = isSelected,
+                                    onClick = { SessionManager.switchTo(index) },
+                                    modifier = Modifier.fillMaxHeight()
+                                ) {
+                                    // Tab 内容
+                                    Row(
+                                        // 🔥 移除垂直居中，让文字自然落下
+                                        // 稍微加一点 padding 调整左右和底部间距
+                                        modifier = Modifier.padding(
+                                            start = 12.dp,
+                                            end = 12.dp,
+                                            bottom = 10.dp
+                                        )
+                                    ) {
+                                        Text(
+                                            text = session.title,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Close",
+                                                modifier = Modifier
+                                                    .size(14.dp)
+                                                    .clickable {
+                                                        SessionManager.removeSession(
+                                                            session
+                                                        )
+                                                    },
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    // 垂直分割线
+                    VerticalDivider(
+                        modifier = Modifier
+                            .padding(vertical = 10.dp) // 上下留白
+                            .height(20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // Add 按钮
+                    // 因为 Row 是底对齐，按钮可能会沉底。
+                    // 这里我们还是让按钮稍微居中一点点看起来舒服，或者就让它沉底
+                    Box(
+                        modifier = Modifier
+                            .size(45.dp) // 宽度和高度填满 Row
+                            .clickable { SessionManager.addNewSession(context) },
+                        contentAlignment = Alignment.Center // 按钮图标在格子里居中
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "New Session",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                // 3. 底部分割线 (Tabs 就在这根线上面)
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
+        },
+
+        // === 底部虚拟按键 ===
+        bottomBar = {
+            Surface(
+                color = Color(buttonBgColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding() // 确保被输入法顶起
+            ) {
+                val pagerState = rememberPagerState(pageCount = { 2 })
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.height(75.dp),
+                    userScrollEnabled = true
+                ) { page ->
+                    when (page) {
+                        0 -> {
+                            AndroidView(
+                                factory = { ctx ->
+                                    VirtualKeysView(ctx, null).apply {
+                                        setButtonTextAllCaps(true)
+                                        reload(
+                                            VirtualKeysInfo(
+                                                VIRTUAL_KEYS_JSON,
+                                                "",
+                                                VirtualKeysConstants.CONTROL_CHARS_ALIASES
+                                            )
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                                update = { view ->
+                                    view.setButtonColors(
+                                        buttonTextColor,
+                                        0xFFf44336.toInt(),
+                                        0x00000000,
+                                        0xFF7F7F7F.toInt()
+                                    )
+                                    terminalViewRef?.get()?.let {
+                                        view.virtualKeysViewClient = VirtualKeysListener(it)
+                                    }
+                                }
+                            )
+                        }
+
+                        1 -> {
+                            var text by rememberSaveable { mutableStateOf("") }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AndroidView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    factory = { ctx ->
+                                        EditText(ctx).apply {
+                                            maxLines = 1; isSingleLine = true; imeOptions =
+                                            EditorInfo.IME_ACTION_DONE
+                                            background = null; hint = "Type command..."
+                                            setHintTextColor(if (isSystemDark) 0xFF888888.toInt() else 0xFFAAAAAA.toInt())
+                                            setTextColor(if (isSystemDark) 0xFFFFFFFF.toInt() else 0xFF000000.toInt())
+                                            doOnTextChanged { t, _, _, _ -> text = t.toString() }
+                                            setOnEditorActionListener { _, actionId, _ ->
+                                                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                                                    val term = terminalViewRef?.get()
+                                                    if (text.isEmpty()) term?.dispatchKeyEvent(
+                                                        KeyEvent(
+                                                            KeyEvent.ACTION_DOWN,
+                                                            KeyEvent.KEYCODE_ENTER
+                                                        )
+                                                    )
+                                                    else {
+                                                        term?.mTermSession?.write(text); setText("")
+                                                    }
+                                                    true
+                                                } else false
+                                            }
+                                        }
+                                    },
+                                    update = {
+                                        if (it.text.toString() != text) it.setText(text); it.setTextColor(
+                                        if (isSystemDark) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
+                                    )
+                                    }
                                 )
                             }
                         }
                     }
                 }
             }
-            IconButton(onClick = { SessionManager.addNewSession(context) }, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-            }
         }
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-
-        // 2. 终端主体
+    ) { innerPadding ->
+        // === 终端内容区域 ===
+        // 🔥🔥🔥 这里的 innerPadding 非常关键！它包含了 TopBar 的高度。
+        // 如果这里没加 padding，TopBar 就会直接盖在终端上面。
         if (currentSession != null) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding) // 必须应用 Scaffold 传递的 Padding
+                    .background(Color(TerminalConfig.getBackgroundColor(isSystemDark)))
+            ) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
                         TerminalView(ctx, null).apply {
                             terminalViewRef = WeakReference(this)
                             setTextSize(42)
-                            setTypeface(Typeface.MONOSPACE)
+                            setTypeface(TerminalFontManager.getTypeface(ctx))
                             keepScreenOn = true
                             isFocusable = true
                             isFocusableInTouchMode = true
@@ -158,173 +335,18 @@ fun TerminalScreen() {
                         }
                     },
                     update = { view ->
+                        view.setTypeface(TerminalFontManager.getTypeface(context))
+                        view.setBackgroundColor(TerminalConfig.getBackgroundColor(isSystemDark))
                         if (view.currentSession != currentSession) {
                             view.attachSession(currentSession)
                             val client = TerminalBackEnd(view, context)
                             view.setTerminalViewClient(client)
                             currentSession.updateTerminalSessionClient(client)
                             view.onScreenUpdated()
-                            // 🔥 这里删除了对 virtualKeysViewRef 的引用，因为我们改用 Compose 实现了
                         }
                     }
                 )
             }
-
-            // 3. 底部虚拟按键/输入
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth() // 高度自适应
-            ) {
-                val pagerState = rememberPagerState(pageCount = { 2 })
-
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.height(56.dp)
-                ) { page ->
-                    when (page) {
-                        0 -> {
-                            // === 🔥 Compose 自定义按键栏 (修复 CTRL/ALT 问题) ===
-
-                            // 定义 CTRL 和 ALT 的状态
-                            var isCtrlPressed by remember { mutableStateOf(false) }
-                            var isAltPressed by remember { mutableStateOf(false) }
-
-                            // 获取所有按键
-                            val allKeys = KEY_PAGES.flatten()
-
-                            LazyRow(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(allKeys) { key ->
-                                    // 按钮激活状态样式
-                                    val isActive = (key.label == "CTRL" && isCtrlPressed) || (key.label == "ALT" && isAltPressed)
-                                    val backgroundColor = if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent
-                                    val contentColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-
-                                    Box(
-                                        modifier = Modifier
-                                            .height(40.dp)
-                                            .defaultMinSize(minWidth = 40.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(backgroundColor)
-                                            .clickable {
-                                                // === 按键逻辑处理 ===
-                                                val session = currentSession
-
-                                                if (key.label == "CTRL") {
-                                                    isCtrlPressed = !isCtrlPressed
-                                                    return@clickable
-                                                }
-                                                if (key.label == "ALT") {
-                                                    isAltPressed = !isAltPressed
-                                                    return@clickable
-                                                }
-
-                                                var output = key.output ?: key.label
-
-                                                // 处理 CTRL 组合键
-                                                if (isCtrlPressed) {
-                                                    // 如果是单个字符 (如 a-z, -, [ 等)
-                                                    if (output.length == 1) {
-                                                        val charCode = output.uppercase()[0].code
-                                                        // ASCII 控制字符映射: A(65) -> 1
-                                                        if (charCode in 64..95) {
-                                                            output = (charCode - 64).toChar().toString()
-                                                        } else if (charCode in 97..122) { // 处理小写 a-z
-                                                            output = (charCode - 96).toChar().toString()
-                                                        }
-                                                    }
-                                                    isCtrlPressed = false // 按下一次后重置
-                                                }
-
-                                                // 处理 ALT 组合键 (通常发送 ESC + 键)
-                                                if (isAltPressed) {
-                                                    output = "\u001b$output"
-                                                    isAltPressed = false
-                                                }
-
-                                                session.write(output)
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = key.label,
-                                            color = contentColor,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 12.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        1 -> {
-                            var text by rememberSaveable { mutableStateOf("") }
-                            AndroidView(
-                                modifier = Modifier.fillMaxSize(),
-                                factory = { ctx ->
-                                    EditText(ctx).apply {
-                                        maxLines = 1
-                                        isSingleLine = true
-                                        imeOptions = EditorInfo.IME_ACTION_DONE
-                                        background = null
-                                        hint = "  输入命令..."
-                                        doOnTextChanged { t, _, _, _ -> text = t.toString() }
-                                        setOnEditorActionListener { _, actionId, _ ->
-                                            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                                                if (text.isEmpty()) {
-                                                    val event = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)
-                                                    terminalViewRef?.get()?.dispatchKeyEvent(event)
-                                                } else {
-                                                    terminalViewRef?.get()?.mTermSession?.write(text)
-                                                    setText("")
-                                                }
-                                                true
-                                            } else false
-                                        }
-                                    }
-                                },
-                                update = { if (it.text.toString() != text) it.setText(text) }
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
-
-// === 按键数据模型 ===
-
-data class VirtualKey(
-    val label: String,      // 显示的文字，如 "TAB"
-    val output: String?,    // 直接输出的内容，如 "\t"。如果是特殊功能键(CTRL)则为 null
-    val isToggle: Boolean = false // 是否是切换键 (CTRL, ALT)
-)
-
-// 定义按键布局
-val KEY_PAGES = listOf(
-    // 第一页
-    listOf(
-        VirtualKey("ESC", "\u001b"),
-        VirtualKey("↹", "\t"), // TAB
-        VirtualKey("CTRL", null, true),
-        VirtualKey("ALT", null, true),
-        VirtualKey("-", "-"),
-        VirtualKey("▼", "\u001b[B"), // 下箭头
-        VirtualKey("▲", "\u001b[A")  // 上箭头
-    ),
-    // 第二页
-    listOf(
-        VirtualKey("/", "/"),
-        VirtualKey("Home", "\u001b[H"),
-        VirtualKey("End", "\u001b[F"),
-        VirtualKey("PgUp", "\u001b[5~"),
-        VirtualKey("PgDn", "\u001b[6~"),
-        VirtualKey("◀", "\u001b[D"), // 左箭头
-        VirtualKey("▶", "\u001b[C")  // 右箭头
-    )
-)
-
-// 🔥 已删除 SmartVirtualKeysListener 类，避免编译错误
