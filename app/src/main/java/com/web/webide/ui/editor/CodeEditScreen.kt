@@ -239,12 +239,6 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                         )
                                         DropdownMenuItem(
                                             text = { Text(if (isOpenSearch) "关闭搜索" else "搜索") },
-                                            leadingIcon = {
-                                                Icon(
-                                                    if (isOpenSearch) Icons.Default.SearchOff else Icons.Default.Search,
-                                                    contentDescription = null
-                                                )
-                                            },
                                             onClick = {
                                                 if (isOpenSearch) viewModel.stopSearch()
                                                 isOpenSearch = !isOpenSearch
