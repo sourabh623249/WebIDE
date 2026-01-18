@@ -5,6 +5,7 @@ import android.util.Log
 import android.view.ViewGroup
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -58,7 +59,7 @@ data class CodeEditorState(
     val file: File,
 ) {
     var content by mutableStateOf("")
-    private var savedContent by mutableStateOf("")
+    var savedContent by mutableStateOf("")
     val isModified: Boolean get() = content != savedContent
     var lspEditor: LspEditor? = null
 
@@ -95,7 +96,7 @@ class EditorViewModel : ViewModel() {
         private set
     var openFiles by mutableStateOf<List<CodeEditorState>>(emptyList())
         private set
-    var activeFileIndex by mutableStateOf(-1)
+    var activeFileIndex by mutableIntStateOf(-1)
         private set
     var currentProjectPath by mutableStateOf<String?>(null)
         private set
@@ -213,7 +214,7 @@ class EditorViewModel : ViewModel() {
 
         // 3. 初始化 LSP 支持（传递 TextMate 语言用于包装）
         val currentLanguage = editor.editorLanguage
-        val textMateLanguage = if (currentLanguage is TextMateLanguage) currentLanguage else null
+        val textMateLanguage = currentLanguage as? TextMateLanguage
         setupLspForEditor(context, state, editor, textMateLanguage)
 
         editorInstances[filePath] = editor
@@ -335,13 +336,32 @@ class EditorViewModel : ViewModel() {
         val index = openFiles.indexOfFirst { it.file.absolutePath == oldFile.absolutePath }
         if (index != -1) {
             val oldState = openFiles[index]
+
+            // 1. 复制构造参数 (file)
             val newState = oldState.copy(file = newFile)
+
+            // 2. 🔥🔥🔥 核心修复：手动复制类体内部的状态 🔥🔥🔥
+            newState.content = oldState.content         // 恢复文件内容
+            newState.savedContent = oldState.savedContent // 恢复"已保存"状态，保持修改标记
+
+            // 注意：重命名后，旧的 LSP 连接通常会失效（因为 URI 变了），所以我们不复制 lspEditor，
+            // 而是将其留空 (null)。UI 重绘时会自动检测并为新路径创建新的 LSP 连接。
+            newState.lspEditor = null
+
+            // 3. 更新列表
             val mutableList = openFiles.toMutableList()
             mutableList[index] = newState
             openFiles = mutableList
+
+            // 4. 更新 Editor 实例缓存 Key，确保不重新创建 View
             val oldEditor = editorInstances.remove(oldFile.absolutePath)
             if (oldEditor != null) {
                 editorInstances[newFile.absolutePath] = oldEditor
+
+                // 可选：为了保险，强制把 View 的内容设为 State 的内容（虽然 View 没变，但以防万一）
+                if (oldEditor.text.toString() != newState.content) {
+                    oldEditor.setText(newState.content)
+                }
             }
         }
     }
