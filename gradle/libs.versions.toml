@@ -48,6 +48,7 @@ anrwatchdog = "1.4.0"
 palette = "1.0.0"
 accompanist = "0.36.0"
 materialIcons = "1.7.8"
+foundationLayout = "1.10.1"
 
 
 [libraries]
@@ -135,6 +136,7 @@ anrwatchdog = { group = "com.github.anrwatchdog", name = "anrwatchdog", version.
 # 核心库简写
 lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleRuntimeKtx" }
 activity = { group = "androidx.activity", name = "activity", version.ref = "activityCompose" }
+androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

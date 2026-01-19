@@ -91,6 +91,23 @@ android {
             excludes += "META-INF/INDEX.LIST"
         }
     }
+    packaging {
+        resources {
+            // 排除导致冲突的 JGit 配置文件
+            excludes += "OSGI-INF/l10n/plugin.properties"
+
+            // 如果后续还有类似冲突，通常也是 META-INF 下的文件，比如：
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/license.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/notice.txt"
+            excludes += "META-INF/ASL2.0"
+            excludes += "META-INF/*.kotlin_module"
+        }
+    }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -170,6 +187,7 @@ dependencies {
     // LSP 支持
     implementation(project(":editor-lsp"))
     implementation(libs.lsp4j)
+    implementation(libs.androidx.compose.foundation.layout)
     //脱唐
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     //TreeSitter语言包
