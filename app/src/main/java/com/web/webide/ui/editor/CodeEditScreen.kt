@@ -107,7 +107,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     var showInitialLoader by remember { mutableStateOf(!viewModel.hasShownInitialLoader) }
     // 构建过程中的进度条状态
     var isBuilding by remember { mutableStateOf(false) }
-
+    val hasOpenFiles = viewModel.openFiles.isNotEmpty()
     // 构建结果状态
     var buildResult by remember { mutableStateOf<BuildResultState?>(null) }
 
@@ -263,11 +263,13 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                     Icon(Icons.AutoMirrored.Filled.Redo, "重做")
                                 }
                                 IconButton(onClick = {
+                                    // 🔥 修改：使用一个协程顺序执行
                                     scope.launch {
-                                        scope.launch {
-                                            viewModel.saveAllModifiedFiles(snackbarHostState)
-                                            navController.safeNavigate("preview/$folderName")
-                                        }
+                                        // 1. 先保存所有文件 (这是一个 suspend 函数，会等待 IO 完成)
+                                        viewModel.saveAllModifiedFiles(snackbarHostState)
+
+                                        // 2. 保存完成后，再跳转 (Undo 栈不会丢失，因为 Editor 实例没变)
+                                        navController.safeNavigate("preview/$folderName")
                                     }
                                 }) {
                                     Icon(Icons.Filled.PlayArrow, "运行")
@@ -413,9 +415,11 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                 content = { innerPadding ->
                     BoxWithConstraints(modifier = Modifier.padding(innerPadding).fillMaxSize().imePadding()) {
                         val availableEditorHeight = maxHeight // 这就是 EditorPanelLayout 可以用的全部高度
+                        val currentSymbols = if (hasOpenFiles) editorConfig.getSymbolList() else emptyList()
+
                         EditorPanelLayout(
                             viewModel = viewModel,
-                            symbols = editorConfig.getSymbolList(),
+                            symbols = currentSymbols,
                             modifier = Modifier.height(availableEditorHeight) // 将精确高度传递给 EditorPanelLayout
                             // 将精确高度传递给 EditorPanelLayout
                         ) {

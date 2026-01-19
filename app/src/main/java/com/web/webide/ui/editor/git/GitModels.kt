@@ -1,0 +1,40 @@
+package com.web.webide.ui.editor.git
+
+import androidx.compose.ui.graphics.Color
+
+// UI使用的 Commit 数据模型
+data class GitCommitUI(
+    val hash: String,
+    val shortHash: String,
+    val message: String,
+    val fullMessage: String,
+    val author: String,
+    val email: String,
+    val time: Long,
+    val parents: List<String>,
+    val refs: List<GitRefUI>,
+
+    // 绘图数据
+    val lane: Int,
+    val totalLanes: Int,
+    val childLanes: List<Int>,
+    val parentLanes: List<Int>,
+    val color: Color
+)
+
+data class GitRefUI(val name: String, val type: RefType)
+enum class RefType { HEAD, LOCAL_BRANCH, REMOTE_BRANCH, TAG }
+
+// 🔥 新增：分支数据模型
+data class GitBranch(
+    val name: String,        // 显示名称 (如 main, origin/main)
+    val fullRef: String,     // 完整引用 (refs/heads/main)
+    val type: BranchType,    // 类型
+    val isCurrent: Boolean   // 是否是当前分支
+)
+
+enum class BranchType { LOCAL, REMOTE }
+
+data class GitFileChange(val filePath: String, val status: GitFileStatus)
+data class GitAuth(val username: String, val token: String)
+enum class GitFileStatus { ADDED, MODIFIED, UNTRACKED, MISSING, REMOVED, CONFLICTING }
