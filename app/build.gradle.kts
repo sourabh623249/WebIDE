@@ -159,6 +159,11 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.ui)
+    // git依赖
+    // Source: https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit
+    implementation(libs.org.eclipse.jgit)
+    implementation(libs.org.eclipse.jgit.ssh.apache)
+
     // 🔥🔥🔥添加终端依赖
     implementation(project(":core:main"))
     // LSP 支持
