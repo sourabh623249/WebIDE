@@ -19,6 +19,7 @@
 
 package com.web.webide.ui.editor
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -55,6 +56,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.web.webide.build.ApkInstaller
@@ -63,6 +65,8 @@ import com.web.webide.ui.editor.components.EditorPanelLayout
 import com.web.webide.ui.editor.components.EditorToolbar
 import com.web.webide.ui.editor.components.JumpLinePanel
 import com.web.webide.ui.editor.components.SearchPanel
+import com.web.webide.ui.editor.git.GitPanel
+import com.web.webide.ui.editor.git.SidebarTab
 import com.web.webide.ui.welcome.ColorPickerDialog
 import com.web.webide.ui.welcome.colorToHex
 import kotlinx.coroutines.launch
@@ -74,6 +78,7 @@ sealed class BuildResultState {
     data class Finished(val message: String, val apkPath: String? = null) : BuildResultState()
 }
 
+@SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CodeEditScreen(folderName: String, navController: NavController, viewModel: EditorViewModel) {
@@ -153,25 +158,72 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
             viewModel.onInitialLoaderShown()
         }
     }
+    var selectedTab by remember { mutableStateOf(SidebarTab.FILES) }
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+
+    // 2. 计算动态宽度
+    // 逻辑：如果是平板(宽>600dp)，侧边栏给 400dp；如果是手机，给屏幕宽度的 85%
+    val drawerWidth = if (screenWidth > 600.dp) 400.dp else (screenWidth * 0.85f)
 
     DismissibleNavigationDrawer(
         drawerState = drawerState,
-        // 关键点：只有当抽屉已经打开时，才允许手势操作。
-        // 这样关闭时，编辑器可以自由横向滚动，不会误触出抽屉；
-        // 打开时，又可以向左滑动关闭。
         gesturesEnabled = drawerState.isOpen,
         drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
-                FileManagerDrawer(
-                    projectPath = projectPath,
-                    onFileClick = { file ->
-                        viewModel.openFile(file)
-                        scope.launch { drawerState.close() }
-                    },
-                    onFileRenamed = { oldFile, newFile ->
-                        viewModel.updateRenamedFile(oldFile, newFile)
+            // --- 修改：增加宽度以容纳 NavigationRail ---
+            ModalDrawerSheet(modifier = Modifier.width(drawerWidth)) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // --- 左侧：NavigationRail ---
+                    NavigationRail(
+                        containerColor = MaterialTheme.colorScheme.surface, // 与Drawer背景融合
+                        modifier = Modifier.width(80.dp) // 固定Rail宽度
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // 1. 文件树按钮
+                        NavigationRailItem(
+                            selected = selectedTab == SidebarTab.FILES,
+                            onClick = { selectedTab = SidebarTab.FILES },
+                            icon = { Icon(Icons.Default.Folder, contentDescription = "文件") },
+                            label = { Text("文件树") }
+                        )
+                        // 2. Git 按钮
+                        NavigationRailItem(
+                            selected = selectedTab == SidebarTab.GIT,
+                            onClick = { selectedTab = SidebarTab.GIT },
+                            icon = { Icon(Icons.Default.Source, contentDescription = "Git") }, // 需要引入 Source 图标
+                            label = { Text("Git") }
+                        )
                     }
-                )
+
+                    // --- 中间分割线 (可选) ---
+                    VerticalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // --- 右侧：内容区域 ---
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        when (selectedTab) {
+                            SidebarTab.FILES -> {
+                                // 原有的文件管理器
+                                FileManagerDrawer(
+                                    projectPath = projectPath,
+                                    onFileClick = { file ->
+                                        viewModel.openFile(file)
+                                        scope.launch { drawerState.close() }
+                                    },
+                                    onFileRenamed = { oldFile, newFile ->
+                                        viewModel.updateRenamedFile(oldFile, newFile)
+                                    }
+                                )
+                            }
+                            SidebarTab.GIT -> {
+                                // 新增的空 Git 面板
+                                GitPanel(projectPath = projectPath)
+                            }
+                        }
+                    }
+                }
             }
         }
     ) {
