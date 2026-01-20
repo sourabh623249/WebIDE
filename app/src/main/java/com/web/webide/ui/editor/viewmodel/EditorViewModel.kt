@@ -308,7 +308,7 @@ class EditorViewModel : ViewModel() {
                 "html", "htm" -> "text.html.basic"
                 "css" -> "source.css"
                 "js", "javascript" -> "source.js"
-                "glsl", "vert", "frag", "geom", "comp" -> "source.c"
+                "glsl", "vert", "frag", "geom", "comp", "vsh", "fsh" -> "source.c"
 
                 "c", "h" -> "source.c"
                 "cpp", "hpp", "cc" -> "source.cpp"
