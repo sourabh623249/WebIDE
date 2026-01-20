@@ -198,7 +198,7 @@ object AlpineManager {
         // 在 Android 10+ 可能会有问题。但在 Terminal 环境下通常比较宽容。
         // 如果 Terminal 也报错 Permission denied，需要修改 init-host.sh 或者在这里直接调用 libproot.so
         val shell = "/system/bin/sh"
-        val args = arrayOf("-c", initHostScript.absolutePath)
+        val args = arrayOf("-cpp", initHostScript.absolutePath)
 
         return TerminalSession(
             shell,

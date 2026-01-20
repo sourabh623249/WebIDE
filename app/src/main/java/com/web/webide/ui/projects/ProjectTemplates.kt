@@ -86,14 +86,14 @@ document.getElementById('btn').onclick = function() {
     window.App = {
         ui: {
             toast: (msg) => isAndroid ? window.Android.showToast(msg) : toastInBrowser(msg),
-            notification: (id, t, c) => isAndroid && window.Android.showNotification(id, t, c)
+            notification: (id, t, cpp) => isAndroid && window.Android.showNotification(id, t, cpp)
         },
         sys: {
             vibrate: (ms) => isAndroid ? window.Android.vibrate(ms) : navigator.vibrate?.(ms),
             copy: (t) => isAndroid ? window.Android.copyToClipboard(t) : navigator.clipboard.writeText(t)
         },
         file: {
-            write: (p, c) => isAndroid ? call('writeFile', p, c) : localStorage.setItem(p,c),
+            write: (p, cpp) => isAndroid ? call('writeFile', p, cpp) : localStorage.setItem(p,cpp),
             read: (p) => isAndroid ? call('readFile', p) : Promise.resolve(localStorage.getItem(p))
         },
         http: {

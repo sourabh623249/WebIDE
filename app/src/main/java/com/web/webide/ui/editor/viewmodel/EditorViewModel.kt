@@ -308,7 +308,10 @@ class EditorViewModel : ViewModel() {
                 "html", "htm" -> "text.html.basic"
                 "css" -> "source.css"
                 "js", "javascript" -> "source.js"
-                "glsl" -> "source.c"
+                "glsl", "vert", "frag", "geom", "comp" -> "source.c"
+
+                "c", "h" -> "source.c"
+                "cpp", "hpp", "cc" -> "source.cpp"
                 else -> return null
             }
             val prefs = context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE)
@@ -796,15 +799,15 @@ class EditorViewModel : ViewModel() {
                 val serverDefinition = when (fileExtension) {
                     "html", "htm" -> CustomLanguageServerDefinition(
                         ext = "html",
-                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-c", "vscode-html-language-server --stdio")) }
+                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-cpp", "vscode-html-language-server --stdio")) }
                     )
                     "css" -> CustomLanguageServerDefinition(
                         ext = "css",
-                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-c", "vscode-css-language-server --stdio")) }
+                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-cpp", "vscode-css-language-server --stdio")) }
                     )
                     "js", "javascript" -> CustomLanguageServerDefinition(
                         ext = "js",
-                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-c", "typescript-language-server --stdio")) }
+                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-cpp", "typescript-language-server --stdio")) }
                     )
                     else -> null
                 }
