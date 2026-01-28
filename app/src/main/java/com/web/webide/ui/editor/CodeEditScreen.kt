@@ -802,6 +802,7 @@ fun AnimatedDrawerToggle(
 }
 
 
+
 private suspend fun performBuild(
     context: Context,
     projectPath: String,
@@ -815,20 +816,31 @@ private suspend fun performBuild(
     val isDebug = prefs.getBoolean("debug_$folderName", false)
 
     val configFile = File(projectPath, "webapp.json")
+
+    // 默认基础配置
     var pkg = "com.example.webapp"
     var verName = "1.0"
     var verCode = "1"
     var iconPath = ""
     var permissions: Array<String>? = null
 
+    // 🔥 新增：签名变量初始化
+    var customKeyPath: String? = null
+    var customStorePass: String? = null
+    var customAlias: String? = null
+    var customKeyPass: String? = null
+
     if (configFile.exists()) {
         try {
             var jsonStr = withContext(Dispatchers.IO) {
                 configFile.readText()
             }
+            // 过滤注释
             jsonStr = jsonStr.lines().filterNot { it.trim().startsWith("//") }.joinToString("\n")
 
             val json = org.json.JSONObject(jsonStr)
+
+            // 1. 基础信息解析 (保持原有)
             pkg = json.optString("package", pkg)
             verName = json.optString("versionName", verName)
             verCode = json.optString("versionCode", verCode)
@@ -847,8 +859,31 @@ private suspend fun performBuild(
                 }
                 permissions = list.toTypedArray()
             }
+
+            // 🔥 2. 解析签名配置 (新增逻辑)
+            val signingObj = json.optJSONObject("signing")
+            if (signingObj != null) {
+                val keyFileName = signingObj.optString("keystore")
+                if (keyFileName.isNotEmpty()) {
+                    // 拼接完整路径：项目目录 + key文件名
+                    val keyFile = File(projectPath, keyFileName)
+                    // 只有文件存在时才传递路径，否则 ApkBuilder 会回退到默认
+                    if (keyFile.exists()) {
+                        customKeyPath = keyFile.absolutePath
+                        customStorePass = signingObj.optString("storePassword")
+                        customAlias = signingObj.optString("alias")
+                        // 如果别名密码为空，通常默认与库密码相同，或者尝试读取 keyPassword
+                        customKeyPass = signingObj.optString("keyPassword", customStorePass)
+                    } else {
+                        LogCatcher.w("Build", "webapp.json 中指定了 keystore 但文件未找到: $keyFileName")
+                    }
+                }
+            }
+
         } catch (e: Exception) {
             LogCatcher.e("Build", "JSON Error", e)
+            onResult(BuildResultState.Finished("webapp.json 格式错误: ${e.message}"))
+            return
         }
     }
 
@@ -863,7 +898,12 @@ private suspend fun performBuild(
             verCode,
             iconPath,
             permissions,
-            isDebug
+            isDebug,
+            // 🔥 传入解析出的签名参数 (如果上面没解析到，这些就是 null)
+            customKeyPath,
+            customStorePass,
+            customAlias,
+            customKeyPass
         )
     }
 

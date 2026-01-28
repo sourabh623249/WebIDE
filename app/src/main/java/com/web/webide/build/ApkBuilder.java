@@ -68,7 +68,13 @@ public class ApkBuilder {
             String code,
             String amph, // 图标路径 (CodeEditScreen 传入的 absolutePath)
             String[] ps,
-            boolean isDebug // 🔥 改动1：新增 isDebug 参数
+            boolean isDebug, // 🔥 改动1：新增 isDebug 参数
+
+            // 🔥 新增：自定义签名参数
+            String customKeyPath,
+            String customStorePass,
+            String customAlias,
+            String customKeyPass
     ) {
 
         File bf = new File(projectPath, "build");
@@ -125,18 +131,46 @@ public class ApkBuilder {
                 return "error: 对齐失败 - " + e.getMessage();
             }
 
-            // 5. 签名
             LogCatcher.i("ApkBuilder", ">> 正在签名...");
-            String signaturePath = new File(mRootDir, "WebIDE.jks").getAbsolutePath();
-            File keyFile = new File(signaturePath);
-            if (!keyFile.exists()) {
-                File internalKey = new File(context.getFilesDir(), "WebIDE.jks");
-                if (!internalKey.exists()) copyAssetFile(context, "WebIDE.jks", internalKey);
-                signaturePath = internalKey.getAbsolutePath();
+
+            String finalKeyPath;
+            String finalStorePass;
+            String finalAlias;
+            String finalKeyPass;
+
+            // 检查是否传入了有效的自定义签名文件
+            if (customKeyPath != null && !customKeyPath.isEmpty() && new File(customKeyPath).exists()) {
+                LogCatcher.i("ApkBuilder", "使用 webapp.json 指定的签名: " + new File(customKeyPath).getName());
+                finalKeyPath = customKeyPath;
+                finalStorePass = customStorePass;
+                finalAlias = customAlias;
+                finalKeyPass = customKeyPass;
+            } else {
+                // 如果没有配置，或者文件不存在，使用默认 Debug 签名
+                if (customKeyPath != null && !customKeyPath.isEmpty()) {
+                    LogCatcher.w("ApkBuilder", "警告: 自定义签名文件不存在 (" + customKeyPath + ")，将回退到默认签名。");
+                }
+                LogCatcher.i("ApkBuilder", "使用默认 WebIDE Debug 签名");
+
+                String signaturePath = new File(mRootDir, "WebIDE.jks").getAbsolutePath();
+                File keyFile = new File(signaturePath);
+                if (!keyFile.exists()) {
+                    File internalKey = new File(context.getFilesDir(), "WebIDE.jks");
+                    if (!internalKey.exists()) copyAssetFile(context, "WebIDE.jks", internalKey);
+                    signaturePath = internalKey.getAbsolutePath();
+                }
+
+                finalKeyPath = signaturePath;
+                finalStorePass = "WebIDE";
+                finalAlias = "WebIDE";
+                finalKeyPass = "WebIDE";
             }
 
             boolean signResult = signerApk(
-                    signaturePath, "WebIDE", "WebIDE", "WebIDE",
+                    finalKeyPath,
+                    finalStorePass,
+                    finalAlias,
+                    finalKeyPass,
                     alignedZipFile.getAbsolutePath(),
                     finalApkFile.getAbsolutePath()
             );
@@ -149,7 +183,7 @@ public class ApkBuilder {
                 LogCatcher.i("ApkBuilder", "✅ 构建成功: " + finalApkFile.getAbsolutePath());
                 return finalApkFile.getAbsolutePath();
             } else {
-                return "error: 签名失败";
+                return "error: 签名失败 (请检查 webapp.json 中的密码/别名是否正确)";
             }
 
         } catch (Exception e) {
@@ -157,6 +191,7 @@ public class ApkBuilder {
             return "error: " + e.getMessage();
         }
     }
+
 
     // 🔥 改动3：增加 context 和 isDebug 参数
     private static void mergeApk(Context context, File templateFile, File outputFile, String projectPath, AppConfig config, boolean isDebug) throws Exception {
