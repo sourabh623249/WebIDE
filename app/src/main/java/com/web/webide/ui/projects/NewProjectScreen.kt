@@ -16,549 +16,761 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 package com.web.webide.ui.projects
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.navigation.NavController
-import com.web.webide.core.utils.PermissionManager
 import com.web.webide.core.utils.WorkspaceManager
+import com.web.webide.ui.components.ColorPickerDialog
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
-import androidx.core.net.toUri
+import androidx.core.graphics.toColorInt
 
-// 定义项目类型枚举
-enum class ProjectType {
-    NORMAL, // 普通 Web
-    WEBAPP, // Android WebApp (本地 HTML)
-    WEBSITE // 网页套壳 (在线 URL)
-}
+// --- 数据结构 ---
+enum class ProjectType { NORMAL, WEBAPP, WEBSITE }
+
+data class SigningConfig(
+    val enabled: Boolean,
+    val path: String,
+    val alias: String,
+    val storePass: String,
+    val keyPass: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewProjectScreen(navController: NavController) {
+    // === 1. 核心状态 ===
     var projectName by remember { mutableStateOf("") }
-    var packageName by remember { mutableStateOf("com.example.myapp") }
     var targetUrl by remember { mutableStateOf("https://") }
-    // 🔥 新增：图标路径状态
+    var selectedType by remember { mutableStateOf(ProjectType.NORMAL) }
+
+    // === 2. 可视化配置状态 (全量映射 webapp.json) ===
+    var packageName by remember { mutableStateOf("com.example.myapp") }
+    var versionName by remember { mutableStateOf("1.0.0") }
+    var versionCode by remember { mutableStateOf("1") }
     var iconPath by remember { mutableStateOf("") }
 
-    var selectedType by remember { mutableStateOf(ProjectType.NORMAL) }
+    // [Display & Status Bar]
+    var orientation by remember { mutableStateOf("portrait") }
+    var isFullscreen by remember { mutableStateOf(false) }
+    var statusBarColor by remember { mutableStateOf("#FFFFFF") }
+    var isDarkStatusText by remember { mutableStateOf(true) }
+
+    // [Webview]
+    var zoomEnabled by remember { mutableStateOf(false) }
+
+    // [Signing]
+    var enableSigning by remember { mutableStateOf(false) }
+    var keystorePath by remember { mutableStateOf("") }
+    var keystoreAlias by remember { mutableStateOf("") }
+    var storePassword by remember { mutableStateOf("") }
+    var keyPassword by remember { mutableStateOf("") }
+
+    // [UI Control]
+    var showColorPicker by remember { mutableStateOf(false) }
+
+    // 页面入场动画状态
+    var isScreenVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { isScreenVisible = true }
+
+    // === 3. 源码与控制 ===
+    var jsonContent by remember { mutableStateOf("") }
+    var jsonError by remember { mutableStateOf<String?>(null) }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var isInternalUpdate by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var packageError by remember { mutableStateOf<String?>(null) }
 
-    // 🔥 新增：图片选择器
-    val imageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            iconPath = uri.toString()
+    // === 4. 双向同步逻辑 ===
+    fun syncJsonFromUi() {
+        if (isInternalUpdate) return
+        isInternalUpdate = true
+        try {
+            val root = JSONObject()
+            // 基础
+            root.put("name", projectName.ifBlank { "MyApp" })
+            root.put("package", packageName)
+            root.put("versionName", versionName)
+            root.put("versionCode", versionCode.toIntOrNull() ?: 1)
+
+            val finalUrl = if (selectedType == ProjectType.WEBSITE) targetUrl else "index.html"
+            root.put("targetUrl", finalUrl)
+
+            if (iconPath.isNotBlank()) root.put("icon", "icon.png")
+
+            // 显示
+            root.put("orientation", orientation)
+            root.put("fullscreen", isFullscreen)
+
+            // 状态栏
+            val sb = JSONObject()
+            sb.put("backgroundColor", statusBarColor)
+            sb.put("style", if (isDarkStatusText) "dark" else "light")
+            root.put("statusBar", sb)
+
+            // Webview
+            val wv = JSONObject()
+            wv.put("zoomEnabled", zoomEnabled)
+            root.put("webview", wv)
+
+            // 签名
+            if (enableSigning) {
+                val sign = JSONObject()
+                val ksName = if (keystorePath.endsWith(".jks", true)) "keystore.jks" else "keystore.keystore"
+                sign.put("keystore", ksName)
+                sign.put("alias", keystoreAlias)
+                sign.put("storePassword", storePassword)
+                sign.put("keyPassword", keyPassword)
+                root.put("signing", sign)
+            }
+
+            root.put("permissions", org.json.JSONArray().put("android.permission.INTERNET"))
+
+            jsonContent = root.toString(2)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            isInternalUpdate = false
         }
     }
 
-    fun validatePackageName(name: String): String? {
-        if (name.isBlank()) return "包名不能为空"
-        if (name.any { it.isDigit() }) return "包名不能包含数字" // 禁止数字
-        if (name.any { it.code > 127 }) return "包名不能包含中文" // 禁止中文
+    fun syncUiFromJson(newJson: String) {
+        jsonContent = newJson
+        if (isInternalUpdate) return
 
-        // 正则严格校验结构
-        val regex = Regex("^[a-zA-Z_]+(\\.[a-zA-Z_]+)+$")
-        if (!name.matches(regex)) return "格式不完整 (例: com.test.app)"
+        try {
+            val root = JSONObject(newJson)
+            jsonError = null
+            isInternalUpdate = true
 
-        return null
+            if(root.has("package")) packageName = root.optString("package")
+            if(root.has("versionName")) versionName = root.optString("versionName")
+            if(root.has("versionCode")) versionCode = root.optInt("versionCode").toString()
+
+            if(root.has("targetUrl")) targetUrl = root.optString("targetUrl")
+
+            if(root.has("orientation")) orientation = root.optString("orientation")
+            if(root.has("fullscreen")) isFullscreen = root.optBoolean("fullscreen")
+
+            val sb = root.optJSONObject("statusBar")
+            if (sb != null) {
+                if(sb.has("backgroundColor")) statusBarColor = sb.optString("backgroundColor")
+                if(sb.has("style")) isDarkStatusText = sb.optString("style") == "dark"
+            }
+
+            val wv = root.optJSONObject("webview")
+            if (wv != null) {
+                if(wv.has("zoomEnabled")) zoomEnabled = wv.optBoolean("zoomEnabled")
+            }
+
+            val sign = root.optJSONObject("signing")
+            enableSigning = sign != null
+            if (sign != null) {
+                keystoreAlias = sign.optString("alias")
+                storePassword = sign.optString("storePassword")
+                keyPassword = sign.optString("keyPassword")
+            }
+
+            isInternalUpdate = false
+        } catch (e: Exception) {
+            jsonError = e.message
+        }
     }
 
-    // 获取当前工作空间路径
-    val workspacePath = WorkspaceManager.getWorkspacePath(context)
+    LaunchedEffect(selectedType) {
+        if (selectedType == ProjectType.WEBAPP) targetUrl = "index.html"
+        else if (selectedType == ProjectType.WEBSITE && !targetUrl.startsWith("http")) targetUrl = "https://"
 
-    // 权限请求状态
-    val permissionState = PermissionManager.rememberPermissionRequest(
-        onPermissionGranted = {
-            scope.launch { snackbarHostState.showSnackbar("权限已获取，请再次点击创建") }
-        },
-        onPermissionDenied = {
-            scope.launch { snackbarHostState.showSnackbar("无权限，无法在 SD 卡创建项目") }
+        if (selectedType != ProjectType.NORMAL) syncJsonFromUi()
+    }
+
+    // 资源选择器
+    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { if(it!=null) { iconPath=it.toString(); syncJsonFromUi() } }
+    val keystoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { if(it!=null) { keystorePath=it.toString(); syncJsonFromUi() } }
+
+    fun handleCreate() {
+        if (projectName.isBlank()) { scope.launch { snackbarHostState.showSnackbar("请输入项目名称") }; return }
+        if (selectedType != ProjectType.NORMAL) {
+            if (jsonError != null) { selectedTab = 1; scope.launch { snackbarHostState.showSnackbar("JSON 语法错误") }; return }
+            if (enableSigning && keystorePath.isBlank()) { selectedTab = 0; scope.launch { snackbarHostState.showSnackbar("请选择 Keystore 文件") }; return }
         }
-    )
+
+        isLoading = true
+        focusManager.clearFocus()
+        if (selectedType != ProjectType.NORMAL) syncJsonFromUi()
+
+        createNewProject(
+            context, projectName,
+            targetUrl,
+            selectedType,
+            SigningConfig(enableSigning, keystorePath, keystoreAlias, storePassword, keyPassword),
+            finalJsonContent = jsonContent,
+            onSuccess = { dir ->
+                isLoading = false
+                scope.launch {
+                    snackbarHostState.showSnackbar("创建成功: ${dir.name}")
+                    delay(800)
+                    navController.popBackStack()
+                }
+            },
+            onError = { msg -> isLoading = false; scope.launch { snackbarHostState.showSnackbar(msg) } }
+        )
+    }
+
+    // === 弹窗层 ===
+    if (showColorPicker) {
+        val initialColorObj = try {
+            Color(statusBarColor.toColorInt())
+        } catch (_: Exception) {
+            Color.White
+        }
+
+        ColorPickerDialog(
+            initialColor = initialColorObj,
+            onDismiss = { showColorPicker = false },
+            onColorSelected = { color ->
+                val argb = color.toArgb()
+                val hex = String.format("#%06X", (0xFFFFFF and argb))
+                statusBarColor = hex
+                syncJsonFromUi()
+                showColorPicker = false
+            }
+        )
+    }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("新建项目") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+            CenterAlignedTopAppBar(
+                title = { Text("新建项目", fontSize = 18.sp, fontWeight = FontWeight.Medium) },
+                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = isScreenVisible,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                Surface(modifier = Modifier.fillMaxWidth().imePadding(), color = MaterialTheme.colorScheme.background) {
+                    BouncyButton(
+                        onClick = { handleCreate() },
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth().padding(20.dp).navigationBarsPadding().height(54.dp)
+                    ) {
+                        if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                        else Text("立即创建", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-            )
+            }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(scrollState)
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
+        // === 动画：入场动画 (FadeIn + SlideUp) ===
+        AnimatedVisibility(
+            visible = isScreenVisible,
+            enter = slideInVertically(initialOffsetY = { 50 }, animationSpec = tween(500, easing = FastOutSlowInEasing)) + fadeIn(tween(500)),
+            modifier = Modifier.padding(innerPadding)
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 显示路径，方便调试
-            Text(
-                text = "存储位置: $workspacePath",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- 1. 项目类型选择 ---
-            Text(
-                "选择模板",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // === 动画：容器大小变化自适应 (animateContentSize) ===
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 24.dp)
+                    .animateContentSize(animationSpec = tween(300, easing = FastOutSlowInEasing)),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                TemplateSelectionCard(Modifier.weight(1f), "Web", Icons.Default.Language, selectedType == ProjectType.NORMAL) { selectedType = ProjectType.NORMAL }
-                TemplateSelectionCard(Modifier.weight(1f), "WebApp", Icons.Default.Android, selectedType == ProjectType.WEBAPP) { selectedType = ProjectType.WEBAPP }
-                TemplateSelectionCard(Modifier.weight(1f), "套壳", Icons.Default.Public, selectedType == ProjectType.WEBSITE) { selectedType = ProjectType.WEBSITE }
-            }
+                Spacer(modifier = Modifier.height(10.dp))
 
-            AnimatedContent(targetState = selectedType, label = "desc") { type ->
-                Text(
-                    text = when (type) {
-                        ProjectType.NORMAL -> "创建标准的 HTML/CSS/JS 项目。"
-                        ProjectType.WEBAPP -> "创建包含 Native 接口的本地 WebApp。"
-                        ProjectType.WEBSITE -> "输入网址，直接打包成 App。"
+                // 类型选择
+                Text("项目类型", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    MinimalTypeCard("Web", Icons.Default.Html, selectedType == ProjectType.NORMAL) { selectedType = ProjectType.NORMAL }
+                    MinimalTypeCard("WebApp", Icons.Default.Android, selectedType == ProjectType.WEBAPP) { selectedType = ProjectType.WEBAPP }
+                    MinimalTypeCard("套壳", Icons.Default.Link, selectedType == ProjectType.WEBSITE) { selectedType = ProjectType.WEBSITE }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 基础项目名
+                CleanTextField(
+                    value = projectName,
+                    onValueChange = {
+                        projectName = it
+                        if (selectedType != ProjectType.NORMAL && packageName.startsWith("com.example.")) {
+                            val clean = it.filter { c -> c.isLetter() }.lowercase(Locale.ROOT)
+                            if (clean.isNotEmpty()) {
+                                packageName = "com.example.$clean"; syncJsonFromUi()
+                            }
+                        } else if (selectedType != ProjectType.NORMAL) {
+                            syncJsonFromUi()
+                        }
                     },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
+                    placeholder = "项目名称", icon = Icons.Outlined.Edit
                 )
-            }
 
-            // --- 2. 基本信息 ---
-            Text("项目信息", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(16.dp))
+                // === 动画：显示/隐藏 URL 输入框 ===
+                AnimatedVisibility(
+                    visible = selectedType == ProjectType.WEBSITE,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        CleanTextField(targetUrl, { targetUrl = it; syncJsonFromUi() }, "目标网址 (URL)", Icons.Outlined.Link, KeyboardType.Uri)
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
 
-            OutlinedTextField(
-                value = projectName,
-                onValueChange = {
-                    projectName = it
-                    if (selectedType != ProjectType.NORMAL) {
-                        // 过滤掉数字，只保留字母
-                        val cleanName = it.filter { c -> c.isLetter() }.lowercase(Locale.ROOT)
+                // 高级配置 Tab 区域
+                // === 动画：整体淡入淡出 ===
+                AnimatedVisibility(
+                    visible = selectedType != ProjectType.NORMAL,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                            .padding(8.dp)
+                    ) {
+                        SecondaryTabRow(
+                            selectedTabIndex = selectedTab,
+                            modifier = Modifier,
+                            containerColor = Color.Transparent,
+                            contentColor = TabRowDefaults.secondaryContentColor, // 注意：M3 中通常用 secondaryContentColor 或 MaterialTheme.colorScheme
+                            indicator = {
+                                // 修正点：
+                                // 1. 去掉了 lambda 参数 (tabPositions ->)
+                                // 2. tabIndicatorOffset 直接接收 selectedTab (Int 类型)
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(selectedTab),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            divider = {},
+                            tabs = {
+                                Tab(
+                                    selected = selectedTab == 0,
+                                    onClick = { selectedTab = 0 },
+                                    text = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Tune, null, Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("配置") } }
+                                )
+                                Tab(
+                                    selected = selectedTab == 1,
+                                    onClick = { selectedTab = 1 },
+                                    text = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Code, null, Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("源码") } }
+                                )
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        if (cleanName.isNotEmpty()) {
-                            packageName = "com.example.$cleanName"
-                            packageError = null // 自动生成时清除错误
+                        // === 动画：Tab 左右滑动切换 ===
+                        AnimatedContent(
+                            targetState = selectedTab,
+                            transitionSpec = {
+                                if (targetState > initialState) {
+                                    (slideInHorizontally { width -> width } + fadeIn()).togetherWith(slideOutHorizontally { width -> -width } + fadeOut())
+                                } else {
+                                    (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                                }
+                            },
+                            label = "TabContent"
+                        ) { tab ->
+                            if (tab == 0) {
+                                Column(Modifier.padding(horizontal = 8.dp)) {
+                                    ConfigSectionTitle("App Info")
+                                    CleanTextField(packageName, { packageName = it; syncJsonFromUi() }, "包名 (Package)", icon = null, isSmall = true, keyboardType = KeyboardType.Ascii)
+                                    Spacer(Modifier.height(8.dp))
+                                    Row {
+                                        CleanTextField(versionName, { versionName = it; syncJsonFromUi() }, "Version Name", icon = null, isSmall = true, modifier = Modifier.weight(1f))
+                                        Spacer(Modifier.width(8.dp))
+                                        CleanTextField(versionCode, { versionCode = it; syncJsonFromUi() }, "Version Code", icon = null, isSmall = true, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    FileSelectorRow("应用图标", iconPath, { imageLauncher.launch("image/*") }, icon = Icons.Outlined.Image)
+
+                                    ConfigSectionTitle("Display & Theme")
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                                    ) {
+                                        Text("屏幕方向", style = MaterialTheme.typography.bodyMedium)
+                                        Spacer(Modifier.width(16.dp))
+                                        Box(Modifier.weight(1f)) {
+                                            AnimatedOrientationSelector(
+                                                currentValue = orientation,
+                                                onValueChange = { orientation = it; syncJsonFromUi() }
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(4.dp))
+                                    SwitchRow("全屏模式", isFullscreen) { isFullscreen = it; syncJsonFromUi() }
+                                    SwitchRow("Webview 缩放", zoomEnabled) { zoomEnabled = it; syncJsonFromUi() }
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CleanTextField(
+                                            value = statusBarColor,
+                                            onValueChange = { statusBarColor = it; syncJsonFromUi() },
+                                            placeholder = "状态栏颜色 (#Hex)",
+                                            icon = Icons.Outlined.Palette,
+                                            isSmall = true,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Box(
+                                            Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(try { Color(statusBarColor.toColorInt()) } catch (_: Exception) { Color.Transparent })
+                                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                                .clickable { showColorPicker = true }
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+                                    SwitchRow("深色状态栏文字", isDarkStatusText) { isDarkStatusText = it; syncJsonFromUi() }
+
+                                    ConfigSectionTitle("Signing")
+                                    SwitchRow("启用自定义签名", enableSigning) { enableSigning = it; syncJsonFromUi() }
+
+                                    // === 动画：展开/收起签名配置 ===
+                                    AnimatedVisibility(
+                                        visible = enableSigning,
+                                        enter = expandVertically() + fadeIn(),
+                                        exit = shrinkVertically() + fadeOut()
+                                    ) {
+                                        Column {
+                                            Spacer(Modifier.height(8.dp))
+                                            FileSelectorRow("Keystore 文件", keystorePath, { keystoreLauncher.launch("*/*") })
+                                            Spacer(Modifier.height(8.dp))
+                                            CleanTextField(keystoreAlias, { keystoreAlias = it; syncJsonFromUi() }, "Alias", Icons.Outlined.Badge, isSmall = true)
+                                            Spacer(Modifier.height(8.dp))
+                                            CleanTextField(storePassword, { storePassword = it; syncJsonFromUi() }, "Store Pwd", Icons.Outlined.Lock, isSmall = true, isPassword = true)
+                                            Spacer(Modifier.height(8.dp))
+                                            CleanTextField(keyPassword, { keyPassword = it; syncJsonFromUi() }, "Key Pwd", Icons.Outlined.VpnKey, isSmall = true, isPassword = true)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(16.dp))
+                                }
+                            } else {
+                                Column(Modifier.padding(horizontal = 4.dp)) {
+                                    OutlinedTextField(
+                                        value = jsonContent,
+                                        onValueChange = { syncUiFromJson(it) },
+                                        modifier = Modifier.fillMaxWidth().height(500.dp).border(1.dp, if (jsonError == null) MaterialTheme.colorScheme.outline.copy(alpha = 0.3f) else MaterialTheme.colorScheme.error, RoundedCornerShape(8.dp)),
+                                        textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface, unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                    Text(
+                                        text = if (jsonError != null) "JSON 格式错误: $jsonError" else "配置已同步",
+                                        color = if (jsonError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
                         }
                     }
-                },
-                label = { Text("项目名称") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+                }
+                Spacer(modifier = Modifier.height(100.dp))
+            }
+        }
+    }
+}
 
-            AnimatedVisibility(visible = selectedType != ProjectType.NORMAL) {
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
+// === 动画：带按压回弹效果的按钮 ===
+@Composable
+fun BouncyButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, label = "buttonScale")
 
-                    OutlinedTextField(
-                        value = packageName,
-                        onValueChange = { input ->
-                            // 🔥🔥🔥 核心修改 1：输入拦截过滤 🔥🔥🔥
-                            // 逻辑：遍历输入的每一个字符，只有符合条件的才保留
-                            // 条件：必须是 字母(a-z/A-Z) 或 点(.) 或 下划线(_)
-                            val filtered = input.filter { char ->
-                                char.isLetter() || char == '.' || char == '_'
-                            }
+    Button(
+        onClick = onClick,
+        modifier = modifier.scale(scale),
+        shape = CircleShape,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        interactionSource = interactionSource,
+        content = content
+    )
+}
 
-                            // 更新状态
-                            packageName = filtered
+// === 动画：屏幕方向选择器 (保留) ===
+@Composable
+fun AnimatedOrientationSelector(
+    currentValue: String,
+    onValueChange: (String) -> Unit
+) {
+    val options = listOf("Portrait" to "portrait", "Landscape" to "landscape", "Auto" to "auto")
+    val selectedIndex = options.indexOfFirst { it.second == currentValue }.coerceAtLeast(0)
 
-                            // 继续执行校验（检查格式是否完整，比如是否有点号分隔）
-                            packageError = validatePackageName(filtered)
-                        },
-                        label = { Text("包名 (Package Name)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+    ) {
+        val segmentWidth = maxWidth / options.size
 
-                        // 🔥🔥🔥 核心修改 2：键盘属性优化 🔥🔥🔥
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Unspecified, autoCorrectEnabled = false, // 🔴 必须关闭！否则输入 com 会被自动纠正为 Come 等单词
-                            keyboardType = KeyboardType.Ascii, // 告诉输入法尽量显示英文键盘
-                            imeAction = ImeAction.Next
-                        ),
+        val indicatorOffset by animateDpAsState(
+            targetValue = segmentWidth * selectedIndex,
+            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+            label = "indicator"
+        )
 
-                        isError = packageError != null,
-                        supportingText = {
-                            if (packageError != null) {
-                                Text(packageError!!, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
+        Box(
+            modifier = Modifier
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .offset(x = indicatorOffset)
+                .padding(4.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            options.forEachIndexed { index, (label, value) ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onValueChange(value) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val isSelected = index == selectedIndex
+                    val textColor by animateColorAsState(
+                        if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(200), label = "text"
                     )
 
-
-                    // 🔥🔥🔥 新增：图标选择输入框 🔥🔥🔥
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = iconPath,
-                        onValueChange = { iconPath = it },
-                        label = { Text("应用图标 (可选)") },
-                        placeholder = { Text("选择图片或输入绝对路径") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                // 启动相册选择器
-                                imageLauncher.launch("image/*")
-                            }) {
-                                Icon(Icons.Default.Image, "从相册选择")
-                            }
-                        }
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = textColor
                     )
                 }
             }
-
-
-            AnimatedVisibility(visible = selectedType == ProjectType.WEBSITE) {
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = targetUrl,
-                        onValueChange = { targetUrl = it },
-                        label = { Text("目标网址 (URL)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = {
-                    // 1. 基础非空检查
-                    if (projectName.isBlank()) {
-                        scope.launch { snackbarHostState.showSnackbar("请输入项目名称") }
-                        return@Button
-                    }
-                    if (projectName.contains(Regex("[/\\\\:*?\"<>|]"))) {
-                        scope.launch { snackbarHostState.showSnackbar("项目名称不能包含特殊字符") }
-                        return@Button
-                    }
-
-                    // 2. 网址检查
-                    if (selectedType == ProjectType.WEBSITE && targetUrl.isBlank()) {
-                        scope.launch { snackbarHostState.showSnackbar("请输入目标网址") }
-                        return@Button
-                    }
-
-                    // 包名严格校验（禁止中文、禁止数字、必须完整）
-                    if (selectedType != ProjectType.NORMAL) {
-                        val error = validatePackageName(packageName)
-                        if (error != null) {
-                            packageError = error // 让输入框变红
-                            scope.launch { snackbarHostState.showSnackbar("包名错误: $error") }
-                            return@Button
-                        }
-                    }
-
-                    // 3. 权限检查
-                    if (PermissionManager.isSystemPermissionRequiredForPath(context, workspacePath) &&
-                        !PermissionManager.hasRequiredPermissions(context)) {
-                        permissionState.requestPermissions()
-                        return@Button
-                    }
-
-                    // 4. 一切检查通过，才开始创建
-                    isLoading = true
-                    // 🔥 传入 iconPath
-                    createNewProject(
-                        context, projectName, packageName, targetUrl, iconPath, selectedType,
-                        onSuccess = {
-                            isLoading = false
-                            scope.launch {
-                                val job = launch { snackbarHostState.showSnackbar("创建成功！", duration = SnackbarDuration.Short) }
-                                kotlinx.coroutines.delay(800)
-                                navController.popBackStack()
-                                job.cancel()
-                            }
-                        },
-                        onError = { errorMsg ->
-                            isLoading = false
-                            scope.launch { snackbarHostState.showSnackbar("创建失败: $errorMsg") }
-                        }
-                    )
-                },
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                enabled = !isLoading,
-                shape = MaterialTheme.shapes.medium
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    Spacer(Modifier.width(8.dp))
-                    Text("创建中...")
-                } else {
-                    Text(text = "创建项目", fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-fun TemplateSelectionCard(modifier: Modifier = Modifier, title: String, icon: ImageVector, isSelected: Boolean, onClick: () -> Unit) {
-    val borderColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
-    val containerColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-    Card(onClick = onClick, modifier = modifier, colors = CardDefaults.cardColors(containerColor = containerColor), border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)) {
-        Column(Modifier.padding(vertical = 16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
-        }
+fun ConfigSectionTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 12.dp))
+}
+
+@Composable
+fun SwitchRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(40.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.scale(0.8f))
     }
+}
+
+@Composable
+fun FileSelectorRow(label: String, path: String, onPick: () -> Unit, icon: ImageVector? = Icons.Outlined.Folder) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CleanTextField(path, { }, label, icon, isSmall = true, modifier = Modifier.weight(1f))
+        IconButton(onClick = onPick) { Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary) }
+    }
+}
+
+// === 动画：项目类型卡片 (选中/未选中平滑过渡) ===
+@Composable
+fun MinimalTypeCard(title: String, icon: ImageVector, isSelected: Boolean, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, label = "bg")
+    val contentColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, label = "content")
+    val scale by animateFloatAsState(if (isSelected) 1.05f else 1f, label = "scale")
+
+    Column(
+        Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .width(100.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(bg)
+            .clickable { onClick() }
+            .padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(icon, null, tint = contentColor, modifier = Modifier.size(26.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = contentColor)
+    }
+}
+
+@Composable
+fun CleanTextField(
+    value: String, onValueChange: (String) -> Unit, placeholder: String, icon: ImageVector?,
+    keyboardType: KeyboardType = KeyboardType.Text, isSmall: Boolean = false, isPassword: Boolean = false, @SuppressLint(
+        "ModifierParameter"
+    ) modifier: Modifier = Modifier
+) {
+    TextField(
+        value = value, onValueChange = onValueChange,
+        placeholder = { Text(placeholder, style = if (isSmall) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline) },
+        leadingIcon = if (icon != null) {
+            { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(if (isSmall) 18.dp else 24.dp)) }
+        } else null,
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent
+        ),
+        singleLine = true,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Next),
+        textStyle = if (isSmall) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge
+    )
 }
 
 @OptIn(DelicateCoroutinesApi::class)
 private fun createNewProject(
-    context: Context, projectName: String, packageName: String, targetUrl: String, iconPathSource: String, type: ProjectType,
-    onSuccess: () -> Unit, onError: (String) -> Unit
+    context: Context, name: String, url: String, type: ProjectType,
+    signing: SigningConfig, finalJsonContent: String,
+    onSuccess: (File) -> Unit, onError: (String) -> Unit
 ) {
-    // 1. 获取当前配置的路径字符串
-    val savedPath = WorkspaceManager.getWorkspacePath(context)
-    val appPackageName = context.packageName
+    val wsPath = WorkspaceManager.getWorkspacePath(context)
+    val appPkg = context.packageName
 
     GlobalScope.launch(Dispatchers.IO) {
         try {
-            val projectParentDir: File
+            val parentDir = if (wsPath.contains("/Android/data/$appPkg")) context.getExternalFilesDir(null)!! else File(wsPath)
+            val projectDir = File(parentDir, name)
+            if (projectDir.exists()) { withContext(Dispatchers.Main) { onError("项目已存在") }; return@launch }
+            projectDir.mkdirs()
 
-            // 核心判断：如果路径里包含包名，说明是私有目录，强制走系统API
-            if (savedPath.contains("/Android/data/$appPackageName")) {
-                val systemPrivateDir = context.getExternalFilesDir(null)
-
-                if (systemPrivateDir == null) {
-                    withContext(Dispatchers.Main) { onError("系统错误：无法访问私有存储 (ExternalFilesDir is null)") }
-                    return@launch
-                }
-                projectParentDir = systemPrivateDir
-            } else {
-                projectParentDir = File(savedPath)
-            }
-
-            // 2. 目标项目文件夹
-            val projectDir = File(projectParentDir, projectName)
-            println("正在创建项目于: ${projectDir.absolutePath}")
-
-            // 3. 检查是否存在
-            if (projectDir.exists()) {
-                withContext(Dispatchers.Main) { onError("该项目已存在") }
-                return@launch
-            }
-
-            // 4. 暴力创建目录
-            var success = projectDir.mkdirs()
-            if (!success) {
-                if (!projectParentDir.exists()) {
-                    projectParentDir.mkdirs()
-                }
-                success = projectDir.mkdirs()
-            }
-
-            if (!success && !projectDir.exists()) {
-                withContext(Dispatchers.Main) {
-                    onError("无法创建目录！\n尝试路径: ${projectDir.absolutePath}\n请确认不是在根目录或受保护的系统目录。")
-                }
-                return@launch
-            }
-
-            // 🔥🔥🔥 5. 处理图标复制逻辑 🔥🔥🔥
-            var iconFileName = "" // 默认为空，表示没有图标
-            if (type != ProjectType.NORMAL && iconPathSource.isNotBlank()) {
-                try {
-                    val destIconFile = File(projectDir, "icon.png")
-                    val uri = iconPathSource.toUri()
-
-                    // 判断是 Content Uri (相册选择) 还是 File Path (手动输入)
-                    if (iconPathSource.startsWith("content://")) {
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            FileOutputStream(destIconFile).use { output ->
-                                input.copyTo(output)
-                            }
-                        }
+            fun copyFile(uriString: String, destName: String): String {
+                if (uriString.isBlank()) return ""
+                return try {
+                    val destFile = File(projectDir, destName)
+                    val uri = uriString.toUri()
+                    if (uriString.startsWith("content://")) {
+                        context.contentResolver.openInputStream(uri)?.use { input -> FileOutputStream(destFile).use { input.copyTo(it) } }
                     } else {
-                        // 认为是绝对路径
-                        val sourceFile = File(iconPathSource)
-                        if (sourceFile.exists()) {
-                            sourceFile.copyTo(destIconFile, overwrite = true)
-                        }
+                        val src = File(uriString)
+                        if (src.exists()) src.copyTo(destFile, overwrite = true)
                     }
-
-                    if (destIconFile.exists()) {
-                        iconFileName = "icon.png" // 复制成功，标记文件名
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    // 图标复制失败不应该阻断项目创建，只打印日志即可
-                    println("图标复制失败: ${e.message}")
-                }
+                    if (destFile.exists()) destName else ""
+                } catch (_: Exception) { "" }
             }
 
-            // 6. 开始写入文件
+            if (type != ProjectType.NORMAL && signing.path.isNotBlank()) {
+                val ext = if (signing.path.endsWith(".jks", true)) ".jks" else ".keystore"
+                copyFile(signing.path, "keystore$ext")
+            }
+
             when (type) {
                 ProjectType.NORMAL -> createNormalStructure(projectDir)
-                // 将 iconFileName 传给结构生成函数
-                ProjectType.WEBAPP -> createWebAppStructure(projectDir, packageName, iconFileName)
-                ProjectType.WEBSITE -> createWebsiteStructure(projectDir, packageName, targetUrl, iconFileName)
+                ProjectType.WEBAPP -> createWebAppStructure(projectDir, finalJsonContent)
+                ProjectType.WEBSITE -> createWebsiteStructure(projectDir, url, finalJsonContent)
             }
 
-            withContext(Dispatchers.Main) { onSuccess() }
-
+            withContext(Dispatchers.Main) { onSuccess(projectDir) }
         } catch (e: Exception) {
             e.printStackTrace()
-            withContext(Dispatchers.Main) {
-                onError("发生未知异常: ${e.javaClass.simpleName}\n${e.message}")
-            }
+            withContext(Dispatchers.Main) { onError(e.message ?: "未知错误") }
         }
     }
 }
 
-private fun createNormalStructure(projectDir: File) {
-    val css = File(projectDir, "css"); css.mkdirs()
-    val js = File(projectDir, "js"); js.mkdirs()
-
-    safeWrite(File(projectDir, "index.html"), ProjectTemplates.normalIndexHtml)
-    safeWrite(File(css, "style.css"), ProjectTemplates.normalCss)
-    safeWrite(File(js, "script.js"), ProjectTemplates.normalJs)
+private fun createNormalStructure(dir: File) {
+    File(dir, "css").mkdirs(); File(dir, "js").mkdirs()
+    safeWrite(File(dir, "index.html"), ProjectTemplates.normalIndexHtml)
+    safeWrite(File(dir, "css/style.css"), ProjectTemplates.normalCss)
+    safeWrite(File(dir, "js/script.js"), ProjectTemplates.normalJs)
 }
-
-// 🔥 新增 icon 参数
-private fun createWebAppStructure(projectDir: File, packageName: String, icon: String) {
-    val assets = File(projectDir, "src/main/assets")
-    assets.mkdirs()
-    File(assets, "js").mkdirs()
-    File(assets, "css").mkdirs()
-
+private fun createWebAppStructure(dir: File, jsonContent: String) {
+    val assets = File(dir, "src/main/assets"); assets.mkdirs()
+    File(assets, "js").mkdirs(); File(assets, "css").mkdirs()
     safeWrite(File(assets, "index.html"), ProjectTemplates.webAppIndexHtml)
     safeWrite(File(assets, "js/api.js"), ProjectTemplates.apiJs)
     safeWrite(File(assets, "js/index.js"), ProjectTemplates.webAppIndexJs)
     safeWrite(File(assets, "css/style.css"), ProjectTemplates.webAppCss)
-
-    // 生成配置，这里假设你的 ProjectTemplates.getConfigFile 支持 icon 参数，或者你需要手动拼装 JSON
-    // 如果 ProjectTemplates 不支持，建议修改它或者在这里手动覆盖
-    val configContent = ProjectTemplates.getConfigFile(packageName, projectDir.name, "index.html")
-
-    // 简单的 JSON 插入逻辑 (如果 template 没有支持的话)
-    val finalConfig = if (icon.isNotEmpty()) {
-        insertIconToJson(configContent, icon)
-    } else {
-        configContent
-    }
-
-    safeWrite(File(projectDir, "webapp.json"), finalConfig)
+    safeWrite(File(dir, "webapp.json"), jsonContent)
 }
-
-// 🔥 新增 icon 参数
-private fun createWebsiteStructure(projectDir: File, packageName: String, targetUrl: String, icon: String) {
-    val assets = File(projectDir, "src/main/assets")
-    assets.mkdirs()
-
-    safeWrite(File(assets, "index.html"), """
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"><title>Redirecting...</title></head>
-        <body><script>window.location.href = "$targetUrl";</script></body>
-        </html>
-    """.trimIndent())
-
-    val configContent = ProjectTemplates.getConfigFile(packageName, projectDir.name, targetUrl)
-    // 简单的 JSON 插入逻辑
-    val finalConfig = if (icon.isNotEmpty()) {
-        insertIconToJson(configContent, icon)
-    } else {
-        configContent
-    }
-
-    safeWrite(File(projectDir, "webapp.json"), finalConfig)
+private fun createWebsiteStructure(dir: File, url: String, jsonContent: String) {
+    val assets = File(dir, "src/main/assets"); assets.mkdirs()
+    safeWrite(File(assets, "index.html"), "<!DOCTYPE html><html><body><script>window.location.replace('$url');</script>Redirecting...</body></html>")
+    safeWrite(File(dir, "webapp.json"), jsonContent)
 }
-
-// 辅助函数：向 JSON 字符串中插入 icon 字段 (防止 Template 类没更新)
-private fun insertIconToJson(json: String, iconPath: String): String {
-    try {
-        val jsonObject = JSONObject(json)
-        jsonObject.put("icon", iconPath)
-        // 如果想在创建时就指定默认 UA，也可以在这里加：
-        // jsonObject.getJSONObject("webview").put("userAgent", "Mozilla/5.0...")
-        return jsonObject.toString(2) // 格式化输出，带2个空格缩进
-    } catch (_: Exception) {
-        // 退而求其次：如果 JSONObject 报错，使用你原来的字符串截取逻辑（作为保底）
-        val lastBraceIndex = json.lastIndexOf('}')
-        if (lastBraceIndex != -1) {
-            val prefix = json.substring(0, lastBraceIndex).trimEnd()
-            val needsComma = !prefix.endsWith("{") && !prefix.endsWith(",")
-            val comma = if (needsComma) "," else ""
-            return "$prefix$comma\n  \"icon\": \"$iconPath\"\n}"
-        }
-        return json
-    }
-}
-
-private fun safeWrite(file: File, content: String) {
-    try {
-        if (!file.parentFile!!.exists()) {
-            file.parentFile!!.mkdirs()
-        }
-        file.writeText(content)
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-}
+private fun safeWrite(file: File, content: String) { try { file.parentFile!!.mkdirs(); file.writeText(content) } catch (_: Exception) {} }

@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 package com.web.webide.ui.projects
 
 object ProjectTemplates {
@@ -48,7 +47,6 @@ document.getElementById('btn').onclick = function() {
     document.getElementById('log').innerText = '时间: ' + new Date().toLocaleTimeString();
 };
     """.trimIndent()
-
 
     val apiJs = """
 (function() {
@@ -114,16 +112,12 @@ document.getElementById('btn').onclick = function() {
 </head>
 <body>
     <h3>WebApp 演示</h3>
-    
-    <!-- 只有一个按钮 -->
     <button onclick="testToast()">点击弹出 Toast</button>
-
     <script src="js/api.js"></script>
     <script src="js/index.js"></script>
 </body>
 </html>
     """.trimIndent()
-
 
     val webAppCss = """
 body { padding: 20px; font-family: sans-serif; }
@@ -138,37 +132,9 @@ button {
 button:active { background-color: #0056b3; }
     """.trimIndent()
 
-
     val webAppIndexJs = """
 function testToast() {
-    // 这行代码在 Android 上调用原生 Toast，在浏览器上显示模拟提示
     App.ui.toast("Hello World! 这是一个 Toast");
 }
     """.trimIndent()
-
-
-    fun getConfigFile(packageName: String, appName: String, targetUrl: String): String = """
-{
-  "name": "$appName",
-  "package": "$packageName",
-  "versionName": "1.0.0",
-  "versionCode": 1,
-  "orientation": "0",
-  "fullscreen": false,
-  "targetUrl": "$targetUrl",
-  "statusBar": {
-    "backgroundColor": "#FFFFFF",
-    "style": "dark"
-  },
-  "webview": {
-    "userAgent": "",
-    "zoomEnabled": false,
-    "textZoom": 100
-  },
-  "permissions": [
-    "android.permission.INTERNET",
-    "android.permission.VIBRATE"
-  ]
-}
-""".trimIndent()
 }
