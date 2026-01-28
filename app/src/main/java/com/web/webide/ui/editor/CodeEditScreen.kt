@@ -93,6 +93,23 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
+    // 🔥 进阶：自动检测该项目下是否存在已构建的 APK
+    LaunchedEffect(projectPath) {
+        // 如果 ViewModel 里还没记录（比如刚打开APP），尝试去硬盘找最新的 release 包
+        if (viewModel.lastBuiltApk == null) {
+            val buildDir = File(projectPath, "build")
+            if (buildDir.exists() && buildDir.isDirectory) {
+                // 找 build 目录下以 _release.apk 结尾且最新的文件
+                val lastApk = buildDir.listFiles()
+                    ?.filter { it.name.endsWith("_release.apk") }
+                    ?.maxByOrNull { it.lastModified() }
+
+                if (lastApk != null) {
+                    viewModel.updateLastBuild(lastApk.absolutePath)
+                }
+            }
+        }
+    }
     LaunchedEffect(drawerState.targetValue) {
         if (drawerState.targetValue == DrawerValue.Open) {
             keyboardController?.hide()
@@ -316,6 +333,29 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                                 navController.navigate("terminal")
                                             }
                                         )
+
+                                        // 只有文件存在且路径属于当前项目(可选逻辑)时才显示
+                                        if (viewModel.lastBuiltApk != null && viewModel.lastBuiltApk!!.exists()) {
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Column {
+                                                        Text("安装上次生成的 APK")
+                                                        Text(
+                                                            text = "版本: ${viewModel.lastBuiltApk!!.name}",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.secondary
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {
+                                                    isMoreMenuExpanded = false
+                                                    // 调用安装器
+                                                    ApkInstaller.install(context, viewModel.lastBuiltApk!!)
+                                                }
+                                            )
+                                            HorizontalDivider() // 加个分割线好看点
+                                        }
+
                                         if (hasWebAppConfig) {
                                             DropdownMenuItem(
                                                 text = { Text("构建 APK") },
@@ -333,6 +373,10 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                                             onResult = { resultState ->
                                                                 buildResult = resultState
                                                                 isBuilding = false
+                                                                // 🔥 新增：如果构建成功，保存路径到 ViewModel
+                                                                if (resultState is BuildResultState.Finished && resultState.apkPath != null) {
+                                                                    viewModel.updateLastBuild(resultState.apkPath)
+                                                                }
                                                             }
                                                         )
                                                     }

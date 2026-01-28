@@ -689,6 +689,14 @@ class EditorViewModel : ViewModel() {
 
     fun insertText(text: String) { insertSymbol(text) }
 
+    var lastBuiltApk: File? by mutableStateOf(null)
+        private set
+
+    // 🔥 新增：更新最后构建的文件
+    fun updateLastBuild(path: String?) {
+        lastBuiltApk = if (path != null) File(path) else null
+    }
+
     fun getCursorPosition(): Pair<Int, Int> {
         val editor = getActiveEditor() ?: return Pair(1, 1)
         val cursor = editor.cursor
