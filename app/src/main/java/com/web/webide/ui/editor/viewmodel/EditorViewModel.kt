@@ -799,15 +799,21 @@ class EditorViewModel : ViewModel() {
                 val serverDefinition = when (fileExtension) {
                     "html", "htm" -> CustomLanguageServerDefinition(
                         ext = "html",
-                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-cpp", "vscode-html-language-server --stdio")) }
+                        serverConnectProvider = { _ ->
+                            ProotStreamConnectionProvider(context, listOf("vscode-html-language-server", "--stdio"))
+                        }
                     )
                     "css" -> CustomLanguageServerDefinition(
                         ext = "css",
-                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-cpp", "vscode-css-language-server --stdio")) }
+                        serverConnectProvider = { _ ->
+                            ProotStreamConnectionProvider(context, listOf("vscode-css-language-server", "--stdio"))
+                        }
                     )
                     "js", "javascript" -> CustomLanguageServerDefinition(
                         ext = "js",
-                        serverConnectProvider = { _ -> ProotStreamConnectionProvider(context, listOf("sh", "-cpp", "typescript-language-server --stdio")) }
+                        serverConnectProvider = { _ ->
+                            ProotStreamConnectionProvider(context, listOf("typescript-language-server", "--stdio"))
+                        }
                     )
                     else -> null
                 }
