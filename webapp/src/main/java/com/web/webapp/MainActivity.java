@@ -391,11 +391,29 @@ public class MainActivity extends Activity {
         }
 
         private String getMimeType(String path) {
-            if (path.endsWith(".html")) return "text/html";
-            if (path.endsWith(".js")) return "application/javascript";
-            if (path.endsWith(".css")) return "text/css";
-            if (path.endsWith(".json")) return "application/json";
-            if (path.endsWith(".png")) return "image/png";
+            String lowerPath = path.toLowerCase(); // 建议转小写，防止 .SVG 后缀匹配失败
+
+            if (lowerPath.endsWith(".html") || lowerPath.endsWith(".htm")) return "text/html";
+            if (lowerPath.endsWith(".js")) return "application/javascript";
+            if (lowerPath.endsWith(".css")) return "text/css";
+            if (lowerPath.endsWith(".json")) return "application/json";
+
+            // 图片格式
+            if (lowerPath.endsWith(".png")) return "image/png";
+            if (lowerPath.endsWith(".jpg") || lowerPath.endsWith(".jpeg")) return "image/jpeg";
+            if (lowerPath.endsWith(".gif")) return "image/gif";
+            if (lowerPath.endsWith(".svg")) return "image/svg+xml"; // 🔥 关键修复：添加这一行
+            if (lowerPath.endsWith(".ico")) return "image/x-icon";
+            if (lowerPath.endsWith(".webp")) return "image/webp"; // 现代 Android 开发常用
+
+            // 字体格式 (如果你的网页用了本地字体)
+            if (lowerPath.endsWith(".ttf")) return "font/ttf";
+            if (lowerPath.endsWith(".woff")) return "font/woff";
+            if (lowerPath.endsWith(".woff2")) return "font/woff2";
+
+            // 音视频
+            if (lowerPath.endsWith(".mp3")) return "audio/mpeg";
+            if (lowerPath.endsWith(".mp4")) return "video/mp4";
             return "text/plain";
         }
     }
