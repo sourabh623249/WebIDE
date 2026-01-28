@@ -135,7 +135,7 @@ object AlpineManager {
     }
 
     // --- 创建 Terminal Session (用于 UI 终端) ---
-    fun createSession(context: Context, client: TerminalSessionClient): TerminalSession {
+    fun createSession(context: Context, client: TerminalSessionClient, projectPath: String? = null): TerminalSession {
         val binDir = getBinDir(context)
         val libDir = getLibDir(context)
         val prefixDir = getPrefixDir(context)
@@ -176,7 +176,8 @@ object AlpineManager {
             //自定义环境变量
             "WEBIDE_VERSION_NAME=$versionName",
             "WEBIDE_VERSION_CODE=$versionCode",
-            "WEBIDE_WORKSPACE=$workspacePath"
+            "WEBIDE_WORKSPACE=$workspacePath",
+            "WEBIDE_PROJECT_DIR=${projectPath ?: ""}"
         )
 
         // 注入 Loader
