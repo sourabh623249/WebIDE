@@ -1,24 +1,7 @@
-/*
- * WebIDE - A powerful IDE for Android web development.
- * Copyright (C) 2025  如日中天  <3382198490@qq.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
 package com.web.webide.ui.editor.viewmodel
 
+import android.app.Application
 import android.content.Context
-import android.util.Log
 import android.view.ViewGroup
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
@@ -26,7 +9,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.itsaky.androidide.treesitter.TSLanguage
 import com.itsaky.androidide.treesitter.json.TSLanguageJson
@@ -34,6 +17,7 @@ import com.web.webide.core.utils.BackupUtils
 import com.web.webide.core.utils.LogCatcher
 import com.web.webide.core.utils.PermissionManager
 import com.web.webide.ui.editor.EditorColorSchemeManager
+import com.web.webide.ui.editor.git.GitManager
 import io.github.rosemoe.sora.lang.EmptyLanguage
 import io.github.rosemoe.sora.lang.styling.TextStyle
 import io.github.rosemoe.sora.text.Content
@@ -46,15 +30,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStreamReader
+import java.util.UUID
 
-// TreeSitter 相关导入
+// TreeSitter
 import io.github.rosemoe.sora.editor.ts.TsLanguage
 import io.github.rosemoe.sora.editor.ts.TsLanguageSpec
 import io.github.rosemoe.sora.editor.ts.CssLanguage
 import io.github.rosemoe.sora.editor.ts.HtmlLanguage
 import io.github.rosemoe.sora.editor.ts.JavaScriptLanguage
 
-// TextMate 备用方案
+// TextMate
 import io.github.rosemoe.sora.langs.textmate.TextMateLanguage
 import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme
 import io.github.rosemoe.sora.langs.textmate.registry.FileProviderRegistry
@@ -64,18 +49,38 @@ import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
 import org.eclipse.tm4e.core.registry.IThemeSource
 
-// LSP 支持
+// LSP
 import io.github.rosemoe.sora.lsp.editor.LspEditor
 import io.github.rosemoe.sora.lsp.editor.LspProject
 import io.github.rosemoe.sora.lsp.client.languageserver.serverdefinition.CustomLanguageServerDefinition
 import com.web.webide.lsp.ProotStreamConnectionProvider
 
+// ================== 核心数据结构 ==================
 
-// --- 数据类定义 ---
+interface IEditorTab {
+    val title: String
+    val file: File
+    val uniqueId: String
+}
+
+enum class DiffViewMode { SPLIT, UNIFIED }
+
+class DiffEditorState(
+    override val file: File,
+    val originalContent: String,
+    val currentContent: String
+) : IEditorTab {
+    override val title: String = "${file.name} (Diff)"
+    override val uniqueId: String = "diff_${file.absolutePath}_${UUID.randomUUID()}"
+    var viewMode by mutableStateOf(DiffViewMode.SPLIT)
+}
 
 data class CodeEditorState(
-    val file: File,
-) {
+    override val file: File,
+) : IEditorTab {
+    override val uniqueId: String = file.absolutePath
+    override val title: String get() = if (isModified) "*${file.name}" else file.name
+
     var content by mutableStateOf("")
     var savedContent by mutableStateOf("")
     val isModified: Boolean get() = content != savedContent
@@ -105,57 +110,45 @@ data class EditorConfig(
     fun getSymbolList(): List<String> = customSymbols.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 }
 
-// --- ViewModel 实现 ---
+// ================== ViewModel 实现 ==================
 
-class EditorViewModel : ViewModel() {
+class EditorViewModel(application: Application) : AndroidViewModel(application) {
 
-    // 状态管理
     var hasShownInitialLoader by mutableStateOf(false)
         private set
-    var openFiles by mutableStateOf<List<CodeEditorState>>(emptyList())
+
+    var openFiles by mutableStateOf<List<IEditorTab>>(emptyList())
         private set
+
     var activeFileIndex by mutableIntStateOf(-1)
         private set
     var currentProjectPath by mutableStateOf<String?>(null)
         private set
     var editorConfig by mutableStateOf(EditorConfig())
         private set
+    var lastBuiltApk: File? by mutableStateOf(null)
+        private set
 
-    // 编辑器实例缓存 (Key: 文件绝对路径)
     private val editorInstances = mutableMapOf<String, CodeEditor>()
-
     private var hasPermissions = false
     private lateinit var appContext: Context
-
-    // TextMate 初始化标志
     private var textMateInitialized = false
 
-    // LSP 项目实例
     private var lspProject: LspProject? = null
-    // 记录已添加的 LSP 定义，防止重复添加
     private val addedLspDefinitions = mutableSetOf<String>()
-
-    // 搜索状态
     private var lastSearchQuery = ""
     private var isIgnoreCase = true
     private var isFormatting = false
 
-    // ======================================================
-    // 核心逻辑：获取或创建 Editor 实例
-    // ======================================================
     @Synchronized
     fun getOrCreateEditor(context: Context, state: CodeEditorState): CodeEditor {
         val filePath = state.file.absolutePath
 
-        // 1. 检查缓存与 Context 有效性
         editorInstances[filePath]?.let { existingEditor ->
-            // 如果 Context 发生变化（如旋转屏幕、深色模式切换），必须重建 Editor
             if (existingEditor.context != context) {
                 try {
-                    // 重建前先清理旧的 LSP，防止泄露
                     state.lspEditor?.dispose()
                     state.lspEditor = null
-
                     (existingEditor.parent as? ViewGroup)?.removeView(existingEditor)
                     existingEditor.release()
                 } catch (e: Exception) { e.printStackTrace() }
@@ -166,57 +159,15 @@ class EditorViewModel : ViewModel() {
             }
         }
 
-        // 2. 创建新的 CodeEditor 实例
         val editor = CodeEditor(context).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-
+            layoutParams = ViewGroup.LayoutParams(-1, -1)
             isFocusable = true
-            isFocusableInTouchMode = true
             isEnabled = true
-
-            // 设置初始内容
             setText(state.content)
 
-            // ------------------------------------------------------------
-            // 语言加载策略：TreeSitter (优) -> TextMate (备用) + LSP
-            // ------------------------------------------------------------
-            val fileExtension = state.file.extension.lowercase()
+            applyLanguageToEditor(this, state.file.extension)
 
-            // 尝试加载 TreeSitter
-            val tsLanguage = loadTreeSitterLanguage(context, fileExtension)
-
-            if (tsLanguage != null) {
-                Log.d("EditorViewModel", "使用 TreeSitter 引擎: $fileExtension")
-                setEditorLanguage(tsLanguage)
-                configureRainbowColors(colorScheme)
-            } else {
-                // TreeSitter 失败，尝试 TextMate
-                val tmLanguage = loadTextMateLanguage(context, fileExtension)
-                if (tmLanguage != null) {
-                    Log.d("EditorViewModel", "使用 TextMate 引擎: $fileExtension")
-                    setEditorLanguage(tmLanguage)
-                    // 应用 TextMate 配色方案
-                    try {
-                        colorScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
-                        Log.d("EditorViewModel", "TextMate 配色方案应用成功")
-                    } catch (e: Exception) {
-                        Log.w("EditorViewModel", "TextMate 配色方案应用失败", e)
-                    }
-                } else {
-                    Log.d("EditorViewModel", "无高亮支持，使用 Plain: $fileExtension")
-                    setEditorLanguage(EmptyLanguage())
-                }
-            }
-            // ------------------------------------------------------------
-
-            // 初始光标位置
             setSelection(0, 0)
-            ensureSelectionVisible()
-
-            // 监听内容变化同步到 State
             text.addContentListener(object : ContentListener {
                 override fun beforeReplace(content: Content) {}
                 override fun afterInsert(content: Content, startLine: Int, startColumn: Int, endLine: Int, endColumn: Int, inserted: CharSequence) {
@@ -230,7 +181,6 @@ class EditorViewModel : ViewModel() {
             })
         }
 
-        // 3. 初始化 LSP 支持（传递 TextMate 语言用于包装）
         val currentLanguage = editor.editorLanguage
         val textMateLanguage = currentLanguage as? TextMateLanguage
         setupLspForEditor(context, state, editor, textMateLanguage)
@@ -239,9 +189,75 @@ class EditorViewModel : ViewModel() {
         return editor
     }
 
-    // ======================================================
-    // TreeSitter 加载逻辑 (保持不变)
-    // ======================================================
+    fun applyLanguageToEditor(editor: CodeEditor, extension: String) {
+        val context = getApplication<Application>()
+        val ext = extension.lowercase()
+        val tsLanguage = loadTreeSitterLanguage(context, ext)
+
+        if (tsLanguage != null) {
+            editor.setEditorLanguage(tsLanguage)
+            configureRainbowColors(editor.colorScheme)
+        } else {
+            val tmLanguage = loadTextMateLanguage(context, ext)
+            if (tmLanguage != null) {
+                editor.setEditorLanguage(tmLanguage)
+                try {
+                    editor.colorScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
+                } catch (_: Exception) {}
+            } else {
+                editor.setEditorLanguage(EmptyLanguage())
+            }
+        }
+    }
+
+    // 🔥 修复报错: 补充 reloadAllEditors 方法
+    fun reloadAllEditors(context: Context) {
+        viewModelScope.launch(Dispatchers.Main) {
+            val currentIndex = activeFileIndex
+            openFiles.forEach { tab ->
+                if (tab is CodeEditorState) {
+                    val editor = editorInstances[tab.file.absolutePath] ?: return@forEach
+                    val cursorLine = editor.cursor.leftLine
+                    val cursorColumn = editor.cursor.leftColumn
+
+                    try { tab.lspEditor?.dispose() } catch (_: Exception) {}
+                    tab.lspEditor = null
+
+                    applyLanguageToEditor(editor, tab.file.extension)
+
+                    val currentLang = editor.editorLanguage
+                    if (currentLang is TextMateLanguage) {
+                        setupLspForEditor(context, tab, editor, currentLang)
+                    }
+
+                    editor.setSelection(cursorLine, cursorColumn)
+                }
+            }
+            activeFileIndex = currentIndex
+        }
+    }
+
+    fun openDiff(projectPath: String, file: File) {
+        viewModelScope.launch {
+            val gitManager = GitManager(projectPath)
+            val headContent = gitManager.getFileContentAtHead(file.absolutePath)
+            val currentContent = withContext(Dispatchers.IO) {
+                try { file.readText() } catch (_: Exception) { "" }
+            }
+
+            val diffState = DiffEditorState(file, headContent, currentContent)
+            val existingIndex = openFiles.indexOfFirst {
+                it is DiffEditorState && it.file.absolutePath == file.absolutePath
+            }
+
+            if (existingIndex != -1) {
+                activeFileIndex = existingIndex
+            } else {
+                openFiles = openFiles + diffState
+                activeFileIndex = openFiles.lastIndex
+            }
+        }
+    }
 
     private fun loadTreeSitterLanguage(context: Context, extension: String): TsLanguage? {
         try {
@@ -252,20 +268,17 @@ class EditorViewModel : ViewModel() {
                 "json", "JSON" -> TSLanguageJson.getInstance()
                 else -> return null
             }
-
             val langFolderName = when(extension) {
                 "js", "javascript" -> "javascript"
                 "htm" -> "html"
                 else -> extension
             }
+            val highlightsScm = try {
+                context.assets.open("queries/$langFolderName/highlights.scm").use { InputStreamReader(it).readText() }
+            } catch (_: Exception) { "" }
 
-            val highlightsScm = readAssetFile(context, "queries/$langFolderName/highlights.scm")
             if (highlightsScm.isBlank()) return null
-
-            val spec = TsLanguageSpec(language, highlightsScm).apply {
-                rainbowBracketsEnabled = true
-            }
-
+            val spec = TsLanguageSpec(language, highlightsScm).apply { rainbowBracketsEnabled = true }
             return TsLanguage(spec) {
                 TextStyle.makeStyle(EditorColorScheme.TEXT_NORMAL) applyTo ""
                 TextStyle.makeStyle(EditorColorScheme.KEYWORD) applyTo "keyword"
@@ -280,21 +293,8 @@ class EditorViewModel : ViewModel() {
                 TextStyle.makeStyle(EditorColorScheme.HTML_TAG) applyTo arrayOf("tag", "tag.error")
                 TextStyle.makeStyle(EditorColorScheme.ATTRIBUTE_NAME) applyTo "attribute"
             }
-        } catch (e: Throwable) {
-            Log.e("EditorViewModel", "TreeSitter 加载异常: $extension", e)
-            return null
-        }
+        } catch (_: Throwable) { return null }
     }
-
-    private fun readAssetFile(context: Context, path: String): String {
-        return try {
-            context.assets.open(path).use { InputStreamReader(it).readText() }
-        } catch (_: Exception) { "" }
-    }
-
-    // ======================================================
-    // TextMate 加载逻辑 (保持不变)
-    // ======================================================
 
     private fun ensureTextMateInitialized(context: Context) {
         if (textMateInitialized) return
@@ -309,14 +309,10 @@ class EditorViewModel : ViewModel() {
                     themeRegistry.loadTheme(ThemeModel(IThemeSource.fromInputStream(themeInputStream, themePath, null), themeName))
                     themeRegistry.setTheme(themeName)
                 }
-            } catch (e: Exception) {
-                Log.w("EditorViewModel", "TextMate 主题加载失败，使用默认主题", e)
-            }
+            } catch (_: Exception) {}
             GrammarRegistry.getInstance().loadGrammars("textmate/languages.json")
             textMateInitialized = true
-        } catch (e: Exception) {
-            Log.e("EditorViewModel", "TextMate 初始化失败", e)
-        }
+        } catch (_: Exception) {}
     }
 
     private fun loadTextMateLanguage(context: Context, extension: String): TextMateLanguage? {
@@ -326,23 +322,18 @@ class EditorViewModel : ViewModel() {
                 "html", "htm" -> "text.html.basic"
                 "css" -> "source.css"
                 "js", "javascript" -> "source.js"
-
-                "glsl", "vert", "frag", "geom", "comp", "vsh", "fsh" -> "source.c"
+                "glsl", "vert", "frag" -> "source.c"
                 "c", "h" -> "source.c"
                 "cpp", "hpp", "cc" -> "source.cpp"
                 else -> return null
             }
             val prefs = context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE)
             val lspEnabled = prefs.getBoolean("editor_lsp_enabled", false)
-            val enableAutoComplete = !lspEnabled
-            TextMateLanguage.create(scopeName, enableAutoComplete)
-        } catch (e: Exception) {
-            Log.e("EditorViewModel", "TextMate 加载失败: $extension", e)
-            null
-        }
+            TextMateLanguage.create(scopeName, !lspEnabled)
+        } catch (_: Exception) { null }
     }
 
-    private fun configureRainbowColors(scheme: EditorColorScheme) {
+    fun configureRainbowColors(scheme: EditorColorScheme) {
         scheme.setColor(256, 0xFFFF6B6B.toInt())
         scheme.setColor(257, 0xFFFFD93D.toInt())
         scheme.setColor(258, 0xFF6BCB77.toInt())
@@ -351,42 +342,137 @@ class EditorViewModel : ViewModel() {
         scheme.setColor(261, 0xFF00E5FF.toInt())
     }
 
-    // ======================================================
-    // 基础配置与权限
-    // ======================================================
-    fun updateRenamedFile(oldFile: File, newFile: File) {
-        val index = openFiles.indexOfFirst { it.file.absolutePath == oldFile.absolutePath }
-        if (index != -1) {
-            val oldState = openFiles[index]
-
-            // 1. 复制构造参数 (file)
-            val newState = oldState.copy(file = newFile)
-
-            // 2. 🔥🔥🔥 核心修复：手动复制类体内部的状态 🔥🔥🔥
-            newState.content = oldState.content         // 恢复文件内容
-            newState.savedContent = oldState.savedContent // 恢复"已保存"状态，保持修改标记
-
-            // 注意：重命名后，旧的 LSP 连接通常会失效（因为 URI 变了），所以我们不复制 lspEditor，
-            // 而是将其留空 (null)。UI 重绘时会自动检测并为新路径创建新的 LSP 连接。
-            newState.lspEditor = null
-
-            // 3. 更新列表
-            val mutableList = openFiles.toMutableList()
-            mutableList[index] = newState
-            openFiles = mutableList
-
-            // 4. 更新 Editor 实例缓存 Key，确保不重新创建 View
-            val oldEditor = editorInstances.remove(oldFile.absolutePath)
-            if (oldEditor != null) {
-                editorInstances[newFile.absolutePath] = oldEditor
-
-                // 可选：为了保险，强制把 View 的内容设为 State 的内容（虽然 View 没变，但以防万一）
-                if (oldEditor.text.toString() != newState.content) {
-                    oldEditor.setText(newState.content)
+    fun openFile(file: File) {
+        if (file.isDirectory || !file.exists()) return
+        viewModelScope.launch {
+            val existingIndex = openFiles.indexOfFirst {
+                it is CodeEditorState && it.file.absolutePath == file.absolutePath
+            }
+            if (existingIndex != -1) {
+                activeFileIndex = existingIndex
+            } else {
+                val content = withContext(Dispatchers.IO) {
+                    try { file.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
                 }
+                val newState = CodeEditorState(file = file)
+                newState.onContentLoaded(content)
+                openFiles = openFiles + newState
+                activeFileIndex = openFiles.lastIndex
             }
         }
     }
+
+    suspend fun saveAllModifiedFiles(snackbarHostState: SnackbarHostState) {
+        withContext(Dispatchers.IO) {
+            val modifiedFiles = openFiles.filterIsInstance<CodeEditorState>().filter { it.isModified }
+            if (modifiedFiles.isEmpty()) return@withContext
+
+            modifiedFiles.forEach { state ->
+                try {
+                    state.file.writeText(state.content)
+                    state.onContentSaved()
+                } catch (e: Exception) { e.printStackTrace() }
+            }
+            withContext(Dispatchers.Main) {
+                viewModelScope.launch { snackbarHostState.showSnackbar("已保存 ${modifiedFiles.size} 个文件") }
+            }
+        }
+    }
+
+    fun closeFile(indexToClose: Int) {
+        if (indexToClose !in openFiles.indices) return
+        val tab = openFiles[indexToClose]
+
+        if (tab is CodeEditorState) {
+            try { tab.lspEditor?.dispose() } catch (_: Exception) {}
+            editorInstances.remove(tab.file.absolutePath)?.release()
+        }
+
+        openFiles = openFiles.toMutableList().also { it.removeAt(indexToClose) }
+        if (openFiles.isEmpty()) {
+            activeFileIndex = -1
+        } else if (activeFileIndex >= indexToClose) {
+            activeFileIndex = (activeFileIndex - 1).coerceAtLeast(0)
+        }
+    }
+
+    fun closeOtherFiles(indexToKeep: Int) {
+        if (indexToKeep !in openFiles.indices) return
+        val keepTab = openFiles[indexToKeep]
+
+        openFiles.forEachIndexed { index, tab ->
+            if (index != indexToKeep && tab is CodeEditorState) {
+                try { tab.lspEditor?.dispose() } catch (_: Exception) {}
+                editorInstances.remove(tab.file.absolutePath)?.release()
+            }
+        }
+        openFiles = listOf(keepTab)
+        activeFileIndex = 0
+    }
+
+    fun closeAllFiles() {
+        openFiles.filterIsInstance<CodeEditorState>().forEach { try { it.lspEditor?.dispose() } catch (_: Exception) {} }
+        editorInstances.values.forEach { try { it.release() } catch (_: Exception) {} }
+        editorInstances.clear()
+        openFiles = emptyList()
+        activeFileIndex = -1
+    }
+
+    fun changeActiveFileIndex(index: Int) {
+        if (index in openFiles.indices) activeFileIndex = index
+    }
+
+    fun getActiveEditor(): CodeEditor? {
+        val activeTab = openFiles.getOrNull(activeFileIndex) ?: return null
+        if (activeTab is CodeEditorState) {
+            return editorInstances[activeTab.file.absolutePath]
+        }
+        return null
+    }
+
+    fun undo() { getActiveEditor()?.undo() }
+    fun redo() { getActiveEditor()?.redo() }
+
+    fun insertSymbol(symbol: String) {
+        val p = if (symbol == "Tab") "\t" else symbol
+        getActiveEditor()?.insertText(p, p.length)
+    }
+    fun insertText(text: String) { insertSymbol(text) }
+
+    fun jumpToLine(lineStr: String) {
+        val line = lineStr.toIntOrNull() ?: return
+        getActiveEditor()?.let { editor ->
+            val totalLines = editor.text.lineCount
+            val targetLine = (line - 1).coerceIn(0, totalLines - 1)
+            editor.setSelection(targetLine, 0)
+            editor.ensureSelectionVisible()
+        }
+    }
+
+    fun loadInitialFile(projectPath: String) {
+        if (projectPath != currentProjectPath) {
+            closeAllFiles()
+            currentProjectPath = projectPath
+            val indexFile = File(projectPath, "index.html")
+            if (indexFile.exists()) openFile(indexFile)
+        }
+    }
+
+    suspend fun autoSaveProject(context: Context, projectPath: String) {
+        withContext(Dispatchers.IO) {
+            val modifiedFiles = openFiles.filterIsInstance<CodeEditorState>().filter { it.isModified }
+            if (modifiedFiles.isNotEmpty()) {
+                modifiedFiles.forEach { state ->
+                    try {
+                        state.file.writeText(state.content)
+                        state.onContentSaved()
+                    } catch (_: Exception) {}
+                }
+                BackupUtils.backupProject(context, projectPath)
+            }
+        }
+    }
+
     fun reloadEditorConfig(context: Context) {
         val prefs = context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE)
         editorConfig = EditorConfig(
@@ -406,129 +492,21 @@ class EditorViewModel : ViewModel() {
         hasPermissions = PermissionManager.hasRequiredPermissions(appContext)
     }
 
-    private fun checkPermissions(): Boolean = hasPermissions
-
-    fun onInitialLoaderShown() {
-        hasShownInitialLoader = true
-    }
-
-    // 在 EditorViewModel 类中找到这个方法并替换
+    fun onInitialLoaderShown() { hasShownInitialLoader = true }
+    fun updateLastBuild(path: String?) { lastBuiltApk = if (path != null) File(path) else null }
 
     fun updateEditorTheme(seedColor: Color, isDark: Boolean) {
         editorInstances.values.forEach { editor ->
-            val currentScheme = editor.colorScheme
-
-            // 1. 应用原有的主题颜色逻辑 (保持你原本的逻辑)
-            EditorColorSchemeManager.applyThemeColors(currentScheme, seedColor, isDark)
-
-            // 2. 🔥🔥🔥 新增：手动设置代码补全窗口的颜色适配明暗模式 🔥🔥🔥
+            EditorColorSchemeManager.applyThemeColors(editor.colorScheme, seedColor, isDark)
             if (isDark) {
-                // === 深色模式 ===
-                // 补全窗口背景 (深灰色)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFF1E1F22.toInt())
-                // 补全主文字颜色 (白色)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFFFFFFFF.toInt())
-                // 补全副文字颜色/类型说明 (浅灰色)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_SECONDARY, 0xFFBBBBBB.toInt())
-                // 当前选中项的背景颜色 (稍微亮一点的灰色)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_ITEM_CURRENT, 0xFF2C2D31.toInt())
-                // 滚动条滑块颜色
-                currentScheme.setColor(EditorColorScheme.SCROLL_BAR_THUMB, 0xFF555555.toInt())
-                // 滚动条滑块按下颜色
-                currentScheme.setColor(EditorColorScheme.SCROLL_BAR_THUMB_PRESSED, 0xFF777777.toInt())
+                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFF1E1F22.toInt())
+                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFFFFFFFF.toInt())
             } else {
-                // === 浅色模式 ===
-                // 补全窗口背景 (纯白或极浅灰)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFFF2F2F2.toInt())
-                // 补全主文字颜色 (黑色)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFF000000.toInt())
-                // 补全副文字颜色 (深灰色)
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_SECONDARY, 0xFF666666.toInt())
-                // 当前选中项的背景颜色 (浅蓝色或浅灰色，这里用 Material 的主色调变淡)
-                // 这里简单使用一个浅灰色，你也可以用 seedColor 混色
-                currentScheme.setColor(EditorColorScheme.COMPLETION_WND_ITEM_CURRENT, 0xFFDFE1E5.toInt())
-                // 滚动条颜色
-                currentScheme.setColor(EditorColorScheme.SCROLL_BAR_THUMB, 0xFFCCCCCC.toInt())
-                currentScheme.setColor(EditorColorScheme.SCROLL_BAR_THUMB_PRESSED, 0xFFAAAAAA.toInt())
+                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFFF2F2F2.toInt())
+                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFF000000.toInt())
             }
-
-            // 3. 针对 TreeSitter 的彩虹括号配置 (保持不变)
-            if (editor.editorLanguage is TsLanguage) {
-                configureRainbowColors(currentScheme)
-            }
-
+            if (editor.editorLanguage is TsLanguage) configureRainbowColors(editor.colorScheme)
             editor.invalidate()
-        }
-    }
-
-    // ======================================================
-    // 文件操作
-    // ======================================================
-
-    fun loadInitialFile(projectPath: String) {
-        if (projectPath != currentProjectPath) {
-            closeAllFiles()
-            currentProjectPath = projectPath
-            val indexFile = File(projectPath, "index.html")
-            if (indexFile.exists() && indexFile.isFile && indexFile.canRead()) {
-                openFile(indexFile)
-            }
-        }
-    }
-
-    fun openFile(file: File) {
-        if (file.isDirectory || !file.exists() || !file.canRead()) return
-        viewModelScope.launch {
-            val existingIndex = openFiles.indexOfFirst { it.file.absolutePath == file.absolutePath }
-            if (existingIndex != -1) {
-                activeFileIndex = existingIndex
-            } else {
-                val content = withContext(Dispatchers.IO) {
-                    try {
-                        file.readText(Charsets.UTF_8)
-                    } catch (_: Exception) {
-                        ""
-                    }
-                }
-                val newState = CodeEditorState(file = file)
-                newState.onContentLoaded(content)
-                openFiles = openFiles + newState
-                activeFileIndex = openFiles.lastIndex
-            }
-        }
-    }
-
-    suspend fun saveAllModifiedFiles(snackbarHostState: SnackbarHostState) {
-        withContext(Dispatchers.IO) {
-            val modifiedFiles = openFiles.filter { it.isModified }
-            if (modifiedFiles.isEmpty()) return@withContext
-
-            if (!checkPermissions()) {
-                withContext(Dispatchers.Main) {
-                    viewModelScope.launch { snackbarHostState.showSnackbar("需要存储权限才能保存文件") }
-                }
-                return@withContext
-            }
-
-            var successCount = 0
-            modifiedFiles.forEach { state ->
-                try {
-                    state.file.outputStream().use { output ->
-                        output.bufferedWriter(Charsets.UTF_8).use { writer ->
-                            writer.write(state.content)
-                        }
-                    }
-                    state.onContentSaved()
-                    successCount++
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            withContext(Dispatchers.Main) {
-                if (successCount > 0) {
-                    viewModelScope.launch { snackbarHostState.showSnackbar("已保存 $successCount 个文件") }
-                }
-            }
         }
     }
 
@@ -537,216 +515,65 @@ class EditorViewModel : ViewModel() {
             try {
                 val newItem = File(parentPath, name)
                 if (newItem.exists()) return@launch
+                val success = if (isFile) newItem.createNewFile() else newItem.mkdirs()
+                if (success) withContext(Dispatchers.Main) { onSuccess(newItem) }
+            } catch (e: Exception) { LogCatcher.e("FileOps", "Create failed", e) }
+        }
+    }
 
-                val success = if (isFile) {
-                    newItem.createNewFile()
-                } else {
-                    newItem.mkdirs()
-                }
+    fun updateRenamedFile(oldFile: File, newFile: File) {
+        val index = openFiles.indexOfFirst { it.file.absolutePath == oldFile.absolutePath }
+        if (index != -1) {
+            val oldTab = openFiles[index]
+            if (oldTab is CodeEditorState) {
+                val newState = oldTab.copy(file = newFile)
+                newState.content = oldTab.content
+                newState.savedContent = oldTab.savedContent
+                newState.lspEditor = null
 
-                if (success) {
-                    withContext(Dispatchers.Main) {
-                        onSuccess(newItem)
-                    }
+                val mutableList = openFiles.toMutableList()
+                mutableList[index] = newState
+                openFiles = mutableList
+
+                val oldEditor = editorInstances.remove(oldFile.absolutePath)
+                if (oldEditor != null) {
+                    editorInstances[newFile.absolutePath] = oldEditor
                 }
-            } catch (e: Exception) {
-                LogCatcher.e("FileOps", "创建失败", e)
             }
         }
-    }
-
-    fun closeAllFiles() {
-        openFiles.forEach { state ->
-            try {
-                state.lspEditor?.dispose()
-                state.lspEditor = null
-            } catch (e: Exception) { e.printStackTrace() }
-            editorInstances.remove(state.file.absolutePath)?.release()
-        }
-        openFiles = emptyList()
-        activeFileIndex = -1
-    }
-
-    fun closeOtherFiles(indexToKeep: Int) {
-        if (indexToKeep !in openFiles.indices) return
-        openFiles.forEachIndexed { index, state ->
-            if (index != indexToKeep) {
-                try {
-                    state.lspEditor?.dispose()
-                    state.lspEditor = null
-                } catch (e: Exception) { e.printStackTrace() }
-                editorInstances.remove(state.file.absolutePath)?.release()
-            }
-        }
-        openFiles = listOf(openFiles[indexToKeep])
-        activeFileIndex = 0
-    }
-
-    fun closeFile(indexToClose: Int) {
-        if (indexToClose !in openFiles.indices) return
-        val state = openFiles.getOrNull(indexToClose)
-
-        state?.let {
-            try {
-                it.lspEditor?.dispose()
-                it.lspEditor = null
-            } catch (e: Exception) { e.printStackTrace() }
-            editorInstances.remove(it.file.absolutePath)?.release()
-        }
-
-        openFiles = openFiles.toMutableList().also { it.removeAt(indexToClose) }
-        if (openFiles.isEmpty()) {
-            activeFileIndex = -1
-        } else if (activeFileIndex >= indexToClose) {
-            activeFileIndex = (activeFileIndex - 1).coerceAtLeast(0)
-        }
-    }
-
-    fun changeActiveFileIndex(index: Int) {
-        if (index in openFiles.indices) activeFileIndex = index
-    }
-
-    // ======================================================
-    // 编辑器操作 (搜索/格式化/撤销/符号)
-    // ======================================================
-
-    fun getActiveEditor(): CodeEditor? {
-        val activeFile = openFiles.getOrNull(activeFileIndex) ?: return null
-        return editorInstances[activeFile.file.absolutePath]
     }
 
     fun searchText(query: String, ignoreCase: Boolean = isIgnoreCase) {
         lastSearchQuery = query
         isIgnoreCase = ignoreCase
         val editor = getActiveEditor() ?: return
-
-        if (query.isNotEmpty()) {
-            editor.searcher.search(query, EditorSearcher.SearchOptions(ignoreCase, false))
-        } else {
-            editor.searcher.stopSearch()
-        }
+        if (query.isNotEmpty()) editor.searcher.search(query, EditorSearcher.SearchOptions(ignoreCase, false))
+        else editor.searcher.stopSearch()
     }
-
-    fun searchNext() {
-        val editor = getActiveEditor() ?: return
-        if (editor.searcher.hasQuery()) {
-            try { editor.searcher.gotoNext() } catch (e: Exception) { LogCatcher.e("Search", "Next failed", e) }
-        }
-    }
-    suspend fun autoSaveProject(context: Context, projectPath: String) {
-        withContext(Dispatchers.IO) {
-            // 1. 检查是否有文件被修改
-            val modifiedFiles = openFiles.filter { it.isModified }
-
-            // 只有当有文件被修改，或者为了安全起见定期备份时才执行
-            // 这里策略是：只要开启自动保存，就保存修改的文件，并尝试备份
-
-            if (modifiedFiles.isNotEmpty()) {
-                if (!PermissionManager.hasRequiredPermissions(context)) return@withContext
-
-                modifiedFiles.forEach { state ->
-                    try {
-                        state.file.outputStream().use { output ->
-                            output.bufferedWriter(Charsets.UTF_8).use { writer ->
-                                writer.write(state.content)
-                            }
-                        }
-                        // 更新状态为已保存（UI层会自动移除 * 号）
-                        state.onContentSaved()
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-                LogCatcher.d("AutoSave", "已自动保存 ${modifiedFiles.size} 个文件")
-            }
-
-            // 2. 执行备份 (BackupUtils 内部已经做了去重或覆盖逻辑，或者你可以加个判断只在文件变动时备份)
-            // 为了防止频繁备份导致卡顿，建议只在有文件被修改后才备份，或者你可以根据需求调整
-            if (modifiedFiles.isNotEmpty()) {
-                val backupResult = BackupUtils.backupProject(context, projectPath)
-                LogCatcher.d("AutoSave", "项目备份结果: $backupResult")
-            }
-        }
-    }
-    fun searchPrev() {
-        val editor = getActiveEditor() ?: return
-        if (editor.searcher.hasQuery()) {
-            try { editor.searcher.gotoPrevious() } catch (e: Exception) { LogCatcher.e("Search", "Prev failed", e) }
-        }
-    }
-
-    fun replaceCurrent(replaceText: String) {
-        try { getActiveEditor()?.searcher?.replaceCurrentMatch(replaceText) } catch (e: Exception) { LogCatcher.e("Search", "Replace failed", e) }
-    }
-
-    fun replaceAll(replaceText: String) {
-        try { getActiveEditor()?.searcher?.replaceAll(replaceText) } catch (e: Exception) { LogCatcher.e("Search", "Replace all failed", e) }
-    }
-
-    fun stopSearch() {
-        getActiveEditor()?.searcher?.stopSearch()
-    }
+    fun searchNext() { getActiveEditor()?.searcher?.gotoNext() }
+    fun searchPrev() { getActiveEditor()?.searcher?.gotoPrevious() }
+    fun replaceCurrent(text: String) { getActiveEditor()?.searcher?.replaceCurrentMatch(text) }
+    fun replaceAll(text: String) { getActiveEditor()?.searcher?.replaceAll(text) }
+    fun stopSearch() { getActiveEditor()?.searcher?.stopSearch() }
 
     fun formatCode() {
         if (isFormatting) return
         isFormatting = true
-        val activeFile = openFiles.getOrNull(activeFileIndex) ?: return
-        val filePath = activeFile.file.absolutePath
-        val editor = editorInstances[filePath] ?: return
-        val extension = activeFile.file.extension
-
+        val editor = getActiveEditor() ?: return
+        val ext = openFiles[activeFileIndex].file.extension
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                val originalCode = editor.text.toString()
-                val formattedCode = com.web.webide.core.utils.CodeFormatter.format(originalCode, extension, editorConfig.tabWidth)
-
-                if (formattedCode != originalCode) {
+                val original = editor.text.toString()
+                val formatted = com.web.webide.core.utils.CodeFormatter.format(original, ext, editorConfig.tabWidth)
+                if (formatted != original) {
                     withContext(Dispatchers.Main) {
-                        val text = editor.text
-                        val lastLine = text.lineCount - 1
-                        val lastColumn = if(lastLine >= 0) text.getColumnCount(lastLine) else 0
-
-                        text.beginBatchEdit()
-                        text.replace(0, 0, lastLine, lastColumn, formattedCode)
-                        text.endBatchEdit()
-
-                        activeFile.content = formattedCode
+                        editor.setText(formatted)
+                        (openFiles[activeFileIndex] as CodeEditorState).content = formatted
                     }
                 }
-            } catch (e: Exception) {
-                LogCatcher.e("Format", "Format failed", e)
-            } finally {
-                isFormatting = false
-            }
+            } catch (e: Exception) { e.printStackTrace() }
+            finally { isFormatting = false }
         }
-    }
-
-    fun jumpToLine(lineStr: String) {
-        val line = lineStr.toIntOrNull() ?: return
-        val editor = getActiveEditor() ?: return
-        val totalLines = editor.text.lineCount
-        val targetLine = (line - 1).coerceIn(0, totalLines - 1)
-        editor.setSelection(targetLine, 0)
-        editor.ensureSelectionVisible()
-    }
-
-    fun undo() { getActiveEditor()?.undo() }
-    fun redo() { getActiveEditor()?.redo() }
-
-    fun insertSymbol(symbol: String) {
-        val editor = getActiveEditor() ?: return
-        val processedSymbol = if (symbol == "Tab") "\t" else symbol
-        editor.insertText(processedSymbol, processedSymbol.length)
-    }
-
-    fun insertText(text: String) { insertSymbol(text) }
-
-    var lastBuiltApk: File? by mutableStateOf(null)
-        private set
-
-    // 🔥 新增：更新最后构建的文件
-    fun updateLastBuild(path: String?) {
-        lastBuiltApk = if (path != null) File(path) else null
     }
 
     fun getCursorPosition(): Pair<Int, Int> {
@@ -755,172 +582,44 @@ class EditorViewModel : ViewModel() {
         return Pair(cursor.leftLine + 1, cursor.leftColumn + 1)
     }
 
-    /**
-     * 重新加载所有编辑器的语言配置（当 LSP 设置改变时调用）
-     */
-    fun reloadAllEditors(context: Context) {
-        viewModelScope.launch(Dispatchers.Main) {
-            val currentIndex = activeFileIndex
-
-            openFiles.forEach { state ->
-                val editor = editorInstances[state.file.absolutePath] ?: return@forEach
-                val cursorLine = editor.cursor.leftLine
-                val cursorColumn = editor.cursor.leftColumn
-
-                // 1. 先销毁旧的 LSP (关键)
-                try {
-                    state.lspEditor?.dispose()
-                } catch (e: Exception) {
-                    Log.w("EditorViewModel", "Dispose old LSP failed", e)
-                }
-                state.lspEditor = null
-
-                // 2. 重新加载语言
-                val fileExtension = state.file.extension.lowercase()
-
-                // 先尝试 TreeSitter
-                val tsLanguage = loadTreeSitterLanguage(context, fileExtension)
-                if (tsLanguage != null) {
-                    editor.setEditorLanguage(tsLanguage)
-                    val scheme = editor.colorScheme
-                    configureRainbowColors(scheme)
-                } else {
-                    // 使用 TextMate
-                    val tmLanguage = loadTextMateLanguage(context, fileExtension)
-                    if (tmLanguage != null) {
-                        editor.setEditorLanguage(tmLanguage)
-                        try {
-                            editor.colorScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
-                        } catch (e: Exception) {
-                            Log.w("EditorViewModel", "TextMate 配色方案应用失败", e)
-                        }
-
-                        // 3. 重新设置 LSP (setupLspForEditor 会创建新的连接)
-                        setupLspForEditor(context, state, editor, tmLanguage)
-                    }
-                }
-
-                // 恢复光标位置
-                editor.setSelection(cursorLine, cursorColumn)
-            }
-            activeFileIndex = currentIndex
-            Log.d("EditorViewModel", "所有编辑器已重新加载")
-        }
-    }
-
-    // ======================================================
-    // LSP 支持
-    // ======================================================
-
-    private fun setupLspForEditor(
-        context: Context,
-        state: CodeEditorState,
-        editor: CodeEditor,
-        textMateLanguage: TextMateLanguage?
-    ) {
+    private fun setupLspForEditor(context: Context, state: CodeEditorState, editor: CodeEditor, textMateLanguage: TextMateLanguage?) {
         val fileExtension = state.file.extension.lowercase()
         if (fileExtension !in listOf("html", "htm", "css", "js", "javascript")) return
-
         val prefs = context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE)
-        val lspEnabled = prefs.getBoolean("editor_lsp_enabled", false)
-
-        if (!lspEnabled) {
-            Log.d("EditorViewModel", "LSP 已被用户禁用")
-            return
-        }
-
-        if (textMateLanguage == null) return
+        if (!prefs.getBoolean("editor_lsp_enabled", false) || textMateLanguage == null) return
 
         try {
-            // 初始化 LSP 项目
             if (lspProject == null) {
                 val projectPath = File(context.filesDir, "lsp_workspace").apply { mkdirs() }.absolutePath
                 lspProject = LspProject(projectPath)
                 lspProject!!.init()
-
-                val jsConfigContent = """{"compilerOptions": {"module": "commonjs", "target": "es6", "lib": ["es6", "dom"], "allowSyntheticDefaultImports": true}, "exclude": ["node_modules"]}"""
-                File(projectPath, "jsconfig.json").writeText(jsConfigContent)
             }
-
-            // === 关键修改：使用时间戳生成唯一的虚拟文件路径 ===
-            // 解决问题：如果文件路径不变，lspProject.getOrCreateEditor 可能返回已 dispose 的旧实例
             val fileName = "editor_${System.identityHashCode(state)}_${System.currentTimeMillis()}.${fileExtension}"
-
             val project = lspProject!!
             val realFile = File(project.projectUri.path, fileName)
+            if (!realFile.exists()) realFile.writeText(state.content)
 
-            if (!realFile.exists()) {
-                realFile.writeText(state.content)
-            }
-
-            // 添加服务器定义 (仅添加一次，防止重复)
-            val serverKey = fileExtension
-            if (!addedLspDefinitions.contains(serverKey)) {
-                val serverDefinition = when (fileExtension) {
-                    "html", "htm" -> CustomLanguageServerDefinition(
-                        ext = "html",
-                        serverConnectProvider = { _ ->
-                            ProotStreamConnectionProvider(context, listOf("vscode-html-language-server", "--stdio"))
-                        }
-                    )
-                    "css" -> CustomLanguageServerDefinition(
-                        ext = "css",
-                        serverConnectProvider = { _ ->
-                            ProotStreamConnectionProvider(context, listOf("vscode-css-language-server", "--stdio"))
-                        }
-                    )
-                    "js", "javascript" -> CustomLanguageServerDefinition(
-                        ext = "js",
-                        serverConnectProvider = { _ ->
-                            ProotStreamConnectionProvider(context, listOf("typescript-language-server", "--stdio"))
-                        }
-                    )
+            if (!addedLspDefinitions.contains(fileExtension)) {
+                // 🔥 修复报错: 使用具名参数调用
+                val def = when(fileExtension) {
+                    "html", "htm" -> CustomLanguageServerDefinition(ext = "html", serverConnectProvider = { ProotStreamConnectionProvider(context, listOf("vscode-html-language-server", "--stdio")) })
+                    "css" -> CustomLanguageServerDefinition(ext = "css", serverConnectProvider = { ProotStreamConnectionProvider(context, listOf("vscode-css-language-server", "--stdio")) })
+                    "js", "javascript" -> CustomLanguageServerDefinition(ext = "js", serverConnectProvider = { ProotStreamConnectionProvider(context, listOf("typescript-language-server", "--stdio")) })
                     else -> null
                 }
-
-                if (serverDefinition != null) {
-                    project.addServerDefinition(serverDefinition)
-                    addedLspDefinitions.add(serverKey)
-                }
+                if (def != null) { project.addServerDefinition(def); addedLspDefinitions.add(fileExtension) }
             }
 
-            // 创建新的 LSP Editor 实例 (由于路径唯一，这里保证是 New Instance)
             val lspEditor = project.getOrCreateEditor(realFile.absolutePath)
-
             lspEditor.wrapperLanguage = textMateLanguage
-            lspEditor.isEnableHover = true
-            lspEditor.isEnableSignatureHelp = true
-            lspEditor.isEnableInlayHint = true
             lspEditor.editor = editor
             state.lspEditor = lspEditor
-
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    // 双重检查，防止在连接前就被 dispose
-                    if (state.lspEditor == lspEditor) {
-                        lspEditor.connect()
-                        Log.d("EditorViewModel", "LSP 连接成功: $fileExtension (Path: $fileName)")
-                    }
-                } catch (e: Exception) {
-                    Log.e("EditorViewModel", "LSP 连接失败: $fileExtension", e)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("EditorViewModel", "LSP 设置失败", e)
-        }
+            viewModelScope.launch(Dispatchers.IO) { try { lspEditor.connect() } catch (_: Exception){} }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun onCleared() {
         super.onCleared()
-        openFiles.forEach {
-            try { it.lspEditor?.dispose() } catch (_: Exception) {}
-        }
-        editorInstances.values.forEach {
-            try { it.release() } catch (e: Exception) { e.printStackTrace() }
-        }
-        editorInstances.clear()
-        // 可选：清理 LSP Project
-        // lspProject = null
-        // addedLspDefinitions.clear()
+        closeAllFiles()
     }
 }

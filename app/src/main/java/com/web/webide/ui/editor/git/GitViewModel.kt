@@ -44,7 +44,8 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
     var savedAuth by mutableStateOf<GitAuth?>(null)
 
     private var gitManager: GitManager? = null
-
+    var testConnectionResult by mutableStateOf<String?>(null)
+    var isTestingConnection by mutableStateOf(false)
     private val laneColors = listOf(
         Color(0xFFFF5252), Color(0xFF40C4FF), Color(0xFFE040FB),
         Color(0xFF69F0AE), Color(0xFFFFAB40), Color(0xFFFFD740),
@@ -56,7 +57,27 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         loadConfig()
         refreshAll()
     }
+    fun testRemoteConnection(
+        url: String,
+        authType: AuthType,
+        username: String,
+        token: String,
+        privateKey: String,
+        passphrase: String
+    ) {
+        viewModelScope.launch {
+            isTestingConnection = true
+            testConnectionResult = "正在连接..."
 
+            val tempAuth = GitAuth(authType, username, token, privateKey, passphrase)
+            // 如果 manager 为空，临时创建一个（针对还没 init 的情况）
+            val manager = gitManager ?: GitManager(getApplication<Application>().filesDir.absolutePath)
+
+            val result = manager.testConnectivity(url, tempAuth)
+            testConnectionResult = result
+            isTestingConnection = false
+        }
+    }
     private fun loadConfig() {
         val context = getApplication<Application>()
         val prefs = context.getSharedPreferences("git_config", Context.MODE_PRIVATE)

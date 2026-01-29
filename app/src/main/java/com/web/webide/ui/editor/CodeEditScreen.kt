@@ -43,44 +43,43 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
-import androidx.navigation.NavController
-import com.web.webide.core.utils.LogCatcher
-import com.web.webide.core.utils.WorkspaceManager
-import com.web.webide.files.FileTree
-import com.web.webide.ui.editor.components.CodeEditorView
-import com.web.webide.ui.editor.viewmodel.EditorViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavController
+import com.web.webide.R
 import com.web.webide.build.ApkInstaller
+import com.web.webide.core.utils.LogCatcher
+import com.web.webide.core.utils.WorkspaceManager
+import com.web.webide.files.FileTree
 import com.web.webide.safeNavigate
+import com.web.webide.ui.components.ColorPickerDialog
+import com.web.webide.ui.components.colorToHex
 import com.web.webide.ui.editor.components.EditorPanelLayout
 import com.web.webide.ui.editor.components.EditorToolbar
 import com.web.webide.ui.editor.components.JumpLinePanel
 import com.web.webide.ui.editor.components.SearchPanel
 import com.web.webide.ui.editor.git.GitPanel
+import com.web.webide.ui.editor.git.GitViewModel
 import com.web.webide.ui.editor.git.SidebarTab
-import com.web.webide.ui.components.ColorPickerDialog
-import com.web.webide.ui.components.colorToHex
+import com.web.webide.ui.editor.viewmodel.EditorViewModel
+import com.web.webide.ui.terminal.AlpineManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import com.web.webide.R
-import com.web.webide.ui.terminal.AlpineManager
-import kotlinx.coroutines.isActive
 
 // 构建结果状态
 sealed class BuildResultState {
@@ -99,6 +98,13 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     val projectPath = File(workspacePath, folderName).absolutePath
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val gitViewModel: GitViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+
+    // 初始化 Git (加载配置等)
+    LaunchedEffect(projectPath) {
+        gitViewModel.initialize(projectPath)
+    }
+
     // 1. 定义状态来持有自动保存的时间间隔
     var autoSaveInterval by remember { mutableLongStateOf(0L) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -121,13 +127,14 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
         AlpineManager.currentProject = projectPath
     }
     LaunchedEffect(autoSaveInterval) {
-        // 只有当间隔大于 0 时才启动循环
         if (autoSaveInterval > 0) {
             while (isActive) {
-                delay(autoSaveInterval) // 等待设定的时间
-
-                // 执行自动保存 (使用我们在 ViewModel 中新加的方法)
+                delay(autoSaveInterval)
+                // 执行自动保存
                 viewModel.autoSaveProject(context, projectPath)
+
+                // ➡️ 顺便刷新 Git 状态！(实现实时更新的关键)
+                gitViewModel.refreshAll()
             }
         }
     }
@@ -149,6 +156,8 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
             }
         }
     }
+
+
     LaunchedEffect(drawerState.targetValue) {
         if (drawerState.targetValue == DrawerValue.Open) {
             keyboardController?.hide()
@@ -195,7 +204,6 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
 
-    // 进入项目时清理不属于当前项目的文件
     LaunchedEffect(folderName) {
         if (viewModel.openFiles.isNotEmpty()) {
             val firstFile = viewModel.openFiles.first().file
@@ -247,14 +255,29 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         // 2. Git 按钮
                         NavigationRailItem(
                             selected = selectedTab == SidebarTab.GIT,
-                            onClick = { selectedTab = SidebarTab.GIT },
+                            onClick = {
+                                selectedTab = SidebarTab.GIT
+                                gitViewModel.refreshAll()
+                                      },
                             icon = {
-                                Icon(
-                                    // 🔥 这里修改：使用 painterResource 加载 xml 资源
-                                    painter = painterResource(id = R.drawable.ic_git),
-                                    contentDescription = "Git",
-                                    modifier = Modifier.size(24.dp) // 建议加上尺寸限制，防止图标过大
-                                )
+                                val changeCount = gitViewModel.changedFiles.size
+                                BadgedBox(
+                                    badge = {
+                                        if (changeCount > 0) {
+                                            Badge {
+                                                // 如果数字太大，显示 99+，否则显示具体数字
+                                                Text(if(changeCount > 99) "99+" else changeCount.toString())
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        // 🔥 这里修改：使用 painterResource 加载 xml 资源
+                                        painter = painterResource(id = R.drawable.ic_git),
+                                        contentDescription = "Git",
+                                        modifier = Modifier.size(24.dp) // 建议加上尺寸限制，防止图标过大
+                                    )
+                                }
                             },
                             label = { Text("Git") }
                         )
@@ -267,7 +290,9 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                     )
 
                     // --- 右侧：内容区域 ---
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    Box(modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()) {
                         when (selectedTab) {
                             SidebarTab.FILES -> {
                                 // 原有的文件管理器
@@ -279,12 +304,17 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                     },
                                     onFileRenamed = { oldFile, newFile ->
                                         viewModel.updateRenamedFile(oldFile, newFile)
+                                        gitViewModel.refreshAll()
                                     }
                                 )
                             }
                             SidebarTab.GIT -> {
                                 // 新增的空 Git 面板
-                                GitPanel(projectPath = projectPath)
+                                GitPanel(
+                                    projectPath = projectPath,
+                                    viewModel = gitViewModel,
+                                    editorViewModel = viewModel // 🔥 加上这一行
+                                )
                             }
                         }
                     }
@@ -353,6 +383,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                                 scope.launch {
                                                     viewModel.saveAllModifiedFiles(snackbarHostState)
                                                 }
+                                                gitViewModel.refreshAll() // <--- 加这一行
                                                 isMoreMenuExpanded = false
                                             }
                                         )
@@ -435,6 +466,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                             snackbarHostState
                                         )
                                     }
+                                    gitViewModel.refreshAll() // <--- 加这一行
                                 },
                                 onSearch = {
                                     isOpenSearch = !isOpenSearch
@@ -505,7 +537,10 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                 },
 
                 content = { innerPadding ->
-                    BoxWithConstraints(modifier = Modifier.padding(innerPadding).fillMaxSize().imePadding()) {
+                    BoxWithConstraints(modifier = Modifier
+                        .padding(innerPadding)
+                        .fillMaxSize()
+                        .imePadding()) {
                         val availableEditorHeight = maxHeight // 这就是 EditorPanelLayout 可以用的全部高度
                         val currentSymbols = if (hasOpenFiles) editorConfig.getSymbolList() else emptyList()
 
@@ -576,6 +611,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         if (nameInput.isNotBlank()) {
                             viewModel.createNewItem(projectPath, nameInput, isFileType) { newItem ->
                                 if (isFileType) viewModel.openFile(newItem)
+                                gitViewModel.refreshAll()
                             }
                         }
                         showCreateDialog = false
@@ -657,9 +693,11 @@ fun EditCode(
     var expandedTabIndex by remember { mutableStateOf<Int?>(null) }
     val currentFiles by rememberUpdatedState(openFiles)
     val currentIndex by rememberUpdatedState(activeFileIndex)
+
     val pagerState = rememberPagerState(
         initialPage = activeFileIndex.coerceIn(0, maxOf(0, openFiles.size - 1)),
-        pageCount = { currentFiles.size })
+        pageCount = { currentFiles.size }
+    )
 
     LaunchedEffect(currentIndex, currentFiles.size) {
         if (currentFiles.isNotEmpty() && currentIndex >= 0 && currentIndex < currentFiles.size && pagerState.currentPage != currentIndex) {
@@ -676,10 +714,9 @@ fun EditCode(
 
     Column(modifier = modifier) {
         if (openFiles.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) { Text("未打开任何文件") }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("未打开任何文件")
+            }
         } else {
             SecondaryScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage.coerceIn(0, openFiles.size - 1),
@@ -690,31 +727,31 @@ fun EditCode(
                         modifier = Modifier
                             .tabIndicatorOffset(pagerState.currentPage.coerceIn(0, openFiles.size - 1))
                             .height(3.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(percent = 50)
-                            )
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(percent = 50))
                     )
                 }
             ) {
-                openFiles.forEachIndexed { index, editorState ->
+                openFiles.forEachIndexed { index, tab ->
                     Box {
-                        val displayName = if (editorState.isModified) "*${editorState.file.name}" else editorState.file.name
+                        // 1. 获取标题
+                        val displayName = tab.title
+
+                        // 2. 区分颜色 (Diff 模式显示不同颜色)
+                        val isDiff = tab is com.web.webide.ui.editor.viewmodel.DiffEditorState
+                        val tabColor = if (isDiff) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
 
                         Tab(
                             selected = pagerState.currentPage == index,
                             onClick = {
-                                if (pagerState.currentPage == index) {
-                                    expandedTabIndex = index
-                                } else {
-                                    scope.launch { pagerState.animateScrollToPage(index) }
-                                }
+                                if (pagerState.currentPage == index) expandedTabIndex = index
+                                else scope.launch { pagerState.animateScrollToPage(index) }
                             },
                             text = {
                                 Text(
                                     text = displayName,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = if (pagerState.currentPage == index) MaterialTheme.colorScheme.primary else tabColor
                                 )
                             }
                         )
@@ -745,18 +782,32 @@ fun EditCode(
                 state = pagerState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 userScrollEnabled = false,
-                key = { index -> if (index < openFiles.size) openFiles[index].file.absolutePath else "empty_$index" }) { page ->
+                key = { index -> if (index < openFiles.size) openFiles[index].uniqueId else "empty_$index" }
+            ) { page ->
                 if (page in openFiles.indices) {
-                    CodeEditorView(
-                        modifier = Modifier.fillMaxSize(),
-                        state = openFiles[page],
-                        viewModel = viewModel
-                    )
+                    val tab = openFiles[page]
+
+                    // 🔥🔥 根据类型渲染组件 🔥🔥
+                    when (tab) {
+                        is com.web.webide.ui.editor.viewmodel.CodeEditorState -> {
+                            com.web.webide.ui.editor.components.CodeEditorView(
+                                modifier = Modifier.fillMaxSize(),
+                                state = tab,
+                                viewModel = viewModel
+                            )
+                        }
+                        is com.web.webide.ui.editor.viewmodel.DiffEditorState -> {
+                            com.web.webide.ui.editor.components.DiffViewer(
+                                viewModel = viewModel,
+                                state = tab,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                 } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) { CircularProgressIndicator() }
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
         }
