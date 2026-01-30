@@ -1,11 +1,3 @@
-/*
- * WebIDE - DiffViewer.kt
- *
- * 修改点：
- * 1. 滚动同步逻辑由 scrollTo(x,y) 改为 scrollBy(dx,dy)。
- * 2. 模拟手指/滚动条的“滑动”操作，而非强制坐标对齐。
- * 3. 依然保留 DiffAligner 占位符逻辑，确保行高度一致。
- */
 package com.web.webide.ui.editor.components
 
 import android.graphics.Color as AndroidColor
@@ -13,6 +5,7 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
@@ -39,7 +32,109 @@ import kotlinx.coroutines.withContext
 import java.util.LinkedList
 import kotlin.math.max
 
-// --- 1. 数据模型 ---
+// ==========================================
+// 1. 核心逻辑：Wake + Lock 同步器 (Ultimate Fix)
+// ==========================================
+// 核心修正版 Synchronizer
+// ==========================================
+// 1. 核心逻辑：纯净事件镜像 (Butter Smooth Version)
+// ==========================================
+
+class ScrollSynchronizer {
+    private var leftEditor: CodeEditor? = null
+    private var rightEditor: CodeEditor? = null
+
+    // 0 = 无, 1 = 左控右, 2 = 右控左
+    private var activeDriver = 0
+
+    fun setEditors(left: CodeEditor?, right: CodeEditor?) {
+        if (this.leftEditor === left && this.rightEditor === right) return
+        unbind() // 先解绑旧的
+        this.leftEditor = left
+        this.rightEditor = right
+        bindEvents()
+    }
+
+    private fun bindEvents() {
+        setupMirroring(leftEditor, isLeft = true)
+        setupMirroring(rightEditor, isLeft = false)
+    }
+
+    private fun unbind() {
+        leftEditor?.setOnTouchListener(null)
+        rightEditor?.setOnTouchListener(null)
+    }
+
+    private fun setupMirroring(editor: CodeEditor?, isLeft: Boolean) {
+        if (editor == null) return
+
+        editor.setOnTouchListener { v, event ->
+            val selfId = if (isLeft) 1 else 2
+            val targetEditor = if (isLeft) rightEditor else leftEditor
+
+            // 如果没有对策编辑器，或者对方正在控制我们，则不处理
+            if (targetEditor == null || (activeDriver != 0 && activeDriver != selfId)) {
+                return@setOnTouchListener false
+            }
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    // 抢占控制权
+                    activeDriver = selfId
+
+                    // 【核心优化 1】立即终止对方的物理惯性
+                    // 防止对方还在惯性滚动时，新的触摸事件导致物理引擎冲突
+                    if (!targetEditor.scroller.isFinished) {
+                        targetEditor.scroller.forceFinished(true)
+                    }
+
+                    // 【核心优化 2】强制坐标对齐
+                    // 在开始新的手势前，消除之前可能积累的微小像素偏差（drift）
+                    val currentY = editor.scroller.currY // 或者 editor.firstVisibleLineY
+                    val targetY = targetEditor.scroller.currY
+                    if (kotlin.math.abs(currentY - targetY) > 0) {
+                        targetEditor.scrollTo(targetEditor.scrollX, editor.scrollY)
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // 手指离开，延时释放或立即释放
+                    // 这里我们保持 activeDriver 直到下一次 DOWN，或者依靠后续逻辑自然归零
+                    // 但为了安全，建议在一定时间后重置，或者允许对方随时抢占（上面的 activeDriver check）
+                    // 简单的策略：手指抬起，物理惯性开始，此时两边都在独立运行物理引擎
+                    activeDriver = 0
+                }
+            }
+
+            // 【核心优化 3】只镜像滚动相关的事件
+            // 过滤掉点击、长按等可能导致光标乱跳的事件，除非你真的想同步光标
+            // SoraEditor 内部处理 View 事件，这里直接透传通常是最高效的，
+            // 但如果发现光标乱跳，可以只透传 ACTION_MOVE/DOWN/UP
+            if (activeDriver == selfId) {
+                val eventCopy = MotionEvent.obtain(event)
+                // 修正坐标：虽然是全屏覆盖，但如果布局有 padding 差异，最好做 offsetLocation
+                // eventCopy.offsetLocation(...)
+                try {
+                    targetEditor.dispatchTouchEvent(eventCopy)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    eventCopy.recycle()
+                }
+            }
+
+            // 自己也要消费事件
+            false
+        }
+
+        // 禁用 ScrollListener 避免循环调用，完全依赖 Touch 驱动
+        editor.setOnScrollChangeListener(null)
+    }
+}
+
+// ==========================================
+// 2. 数据结构
+// ==========================================
 data class AlignedDiffResult(
     val leftContent: CharSequence,
     val rightContent: CharSequence,
@@ -47,12 +142,17 @@ data class AlignedDiffResult(
     val deletes: Int
 )
 
+// ==========================================
+// 3. UI 组件
+// ==========================================
+
 @Composable
 fun DiffViewer(
     viewModel: EditorViewModel,
     state: DiffEditorState,
     modifier: Modifier = Modifier
 ) {
+    // 异步计算差异
     var diffData by remember(state.originalContent, state.currentContent) {
         mutableStateOf<AlignedDiffResult?>(null)
     }
@@ -133,65 +233,52 @@ fun SplitDiffView(
     viewModel: EditorViewModel,
     data: AlignedDiffResult
 ) {
-    // 使用 MutableState 持有引用，确保 Compose 重组时引用不丢失
-    var leftEditor by remember { mutableStateOf<CodeEditor?>(null) }
-    var rightEditor by remember { mutableStateOf<CodeEditor?>(null) }
+    // 保持 Synchronizer 实例
+    val synchronizer = remember { ScrollSynchronizer() }
+
+    // 使用 ref 引用编辑器，避免 Compose 重组导致对象丢失
+    var leftEditorRef by remember { mutableStateOf<CodeEditor?>(null) }
+    var rightEditorRef by remember { mutableStateOf<CodeEditor?>(null) }
+
+    // 【重要】当编辑器实例变化时，重新绑定
+    DisposableEffect(leftEditorRef, rightEditorRef) {
+        if (leftEditorRef != null && rightEditorRef != null) {
+            synchronizer.setEditors(leftEditorRef, rightEditorRef)
+        }
+        onDispose {
+            // 组件销毁时可以在这里做清理，或者由 Synchronizer 内部处理
+            // synchronizer.unbind()
+        }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val halfWidth = maxWidth / 2
-
         Row(modifier = Modifier.fillMaxSize()) {
-            // ================= 左侧 (HEAD) =================
-            Column(
-                modifier = Modifier.width(halfWidth).fillMaxHeight().clipToBounds()
-            ) {
+            Column(modifier = Modifier.width(halfWidth).fillMaxHeight().clipToBounds()) {
                 DiffHeader("HEAD", Color(0xFFD32F2F))
-
                 DiffEditorInstance(
                     content = data.leftContent,
                     fileName = state.file.name,
                     viewModel = viewModel,
                     isLeft = true,
-                    onEditorCreated = { leftEditor = it },
-                    // 🔥 修改点：接收绝对坐标 x, y
-                    onScrollChanged = { x, y ->
-                        val target = rightEditor ?: return@DiffEditorInstance
-                        // 🔥 核心防抖逻辑：只有当目标位置不同时才滚动
-                        // 这能完美阻断死循环：A动->B动->B回调发现位置一样->停止
-                        if (target.scrollX != x || target.scrollY != y) {
-                            target.scrollTo(x, y)
-                        }
-                    }
+                    onEditorCreated = { leftEditorRef = it }
                 )
             }
-
             VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-
-            // ================= 右侧 (Working) =================
-            Column(
-                modifier = Modifier.width(halfWidth).fillMaxHeight().clipToBounds()
-            ) {
+            Column(modifier = Modifier.width(halfWidth).fillMaxHeight().clipToBounds()) {
                 DiffHeader("Working", Color(0xFF388E3C))
-
                 DiffEditorInstance(
                     content = data.rightContent,
                     fileName = state.file.name,
                     viewModel = viewModel,
                     isLeft = false,
-                    onEditorCreated = { rightEditor = it },
-                    // 🔥 修改点：接收绝对坐标 x, y
-                    onScrollChanged = { x, y ->
-                        val target = leftEditor ?: return@DiffEditorInstance
-                        // 🔥 核心防抖逻辑
-                        if (target.scrollX != x || target.scrollY != y) {
-                            target.scrollTo(x, y)
-                        }
-                    }
+                    onEditorCreated = { rightEditorRef = it }
                 )
             }
         }
     }
 }
+
 @Composable
 fun UnifiedDiffView(state: DiffEditorState, viewModel: EditorViewModel, data: AlignedDiffResult) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -200,8 +287,7 @@ fun UnifiedDiffView(state: DiffEditorState, viewModel: EditorViewModel, data: Al
             fileName = state.file.name,
             viewModel = viewModel,
             isLeft = false,
-            onEditorCreated = {},
-            onScrollChanged  = { _, _ -> }
+            onEditorCreated = {}
         )
     }
 }
@@ -226,9 +312,7 @@ fun DiffEditorInstance(
     fileName: String,
     viewModel: EditorViewModel,
     isLeft: Boolean,
-    onEditorCreated: (CodeEditor) -> Unit,
-    // 🔥 回调改为绝对坐标
-    onScrollChanged: (Int, Int) -> Unit
+    onEditorCreated: (CodeEditor) -> Unit
 ) {
     val editorConfig = viewModel.editorConfig
 
@@ -239,13 +323,23 @@ fun DiffEditorInstance(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                isEditable = false
-                isFocusable = true
-                isLineNumberEnabled = true
-                isWordwrap = false // 必须关闭换行保证对齐
 
+                // --- 基础 ---
+                isEditable = false
+                isFocusable = true // 必须开启
+
+                // --- 核心优化 ---
+                // 1. 关闭换行：保证每一行的“高度”绝对一致，防止左右行高错位
+                isWordwrap = false
+
+                // 2. 移除边缘光晕：防止同步时一边闪蓝光一边不闪，影响视觉流畅度
+                overScrollMode = android.view.View.OVER_SCROLL_NEVER
+
+                // 3. 字体强制等宽：这是对齐的基础
                 typefaceText = android.graphics.Typeface.MONOSPACE
                 typefaceLineNumber = android.graphics.Typeface.MONOSPACE
+
+                // 4. 设置字号和Tab：必须完全一致
                 tabWidth = editorConfig.tabWidth
 
                 try {
@@ -260,19 +354,15 @@ fun DiffEditorInstance(
                 }
                 colorScheme = scheme
 
-                // 🔥🔥 核心修改：直接传递当前坐标 🔥🔥
-                // Rosemonde Editor 的 setOnScrollChangeListener 回调是 (View, x, y, oldX, oldY)
-                setOnScrollChangeListener { _, x, y, _, _ ->
-                    onScrollChanged(x, y)
-                }
-
                 onEditorCreated(this)
             }
         },
         update = { editor ->
-            // 避免重复设置 text 导致重置滚动位置
+            // 只有内容真变了才 Set，防止重置位置
             if (editor.text.toString() != content.toString()) {
                 editor.setText(content)
+                // 强制刷新一次
+                editor.postInvalidate()
             }
         },
         modifier = Modifier.fillMaxSize()
@@ -280,9 +370,8 @@ fun DiffEditorInstance(
 }
 
 // ==========================================
-// Diff 对齐算法 (保持不变)
+// 4. Diff 算法逻辑 (LCS + Padding)
 // ==========================================
-
 object DiffAligner {
     private const val COLOR_DELETE_BG = 0x40B71C1C
     private const val COLOR_ADD_BG = 0x401B5E20
