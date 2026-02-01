@@ -25,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -220,10 +221,10 @@ fun DiffViewer(
             }
         } else {
             val data = diffData!!
-            if (state.viewMode == DiffViewMode.SPLIT) {
-                SplitDiffView(state, viewModel, data)
-            } else {
+            if (state.viewMode == DiffViewMode.UNIFIED) {
                 UnifiedDiffView(state, viewModel, data)
+            } else {
+                SplitDiffView(state, viewModel, data)
             }
         }
     }
@@ -261,8 +262,14 @@ fun DiffToolbar(state: DiffEditorState, data: AlignedDiffResult?) {
             
             IconButton(onClick = { state.viewMode = DiffViewMode.SPLIT }) {
                 Icon(
-                    Icons.Default.ViewColumn, "Split",
+                    Icons.Default.ViewColumn, "Side-by-Side",
                     tint = if (state.viewMode == DiffViewMode.SPLIT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = { state.viewMode = DiffViewMode.SPLIT_VERTICAL }) {
+                Icon(
+                    Icons.Filled.ViewAgenda, "Top-Bottom",
+                    tint = if (state.viewMode == DiffViewMode.SPLIT_VERTICAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = { state.viewMode = DiffViewMode.UNIFIED }) {
@@ -299,30 +306,66 @@ fun SplitDiffView(
         }
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val halfWidth = maxWidth / 2
-        Row(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.width(halfWidth).fillMaxHeight().clipToBounds()) {
+    if (state.viewMode == DiffViewMode.SPLIT_VERTICAL) {
+        // 上下分栏模式
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
                 DiffHeader("HEAD", Color(0xFFD32F2F))
                 DiffEditorInstance(
                     content = data.leftContent,
                     highlights = data.leftHighlights,
                     fileName = state.file.name,
                     viewModel = viewModel,
-                    readOnly = true, // 左侧永远只读
+                    readOnly = true,
                     onEditorCreated = { leftEditorRef = it }
                 )
             }
-            VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            Column(modifier = Modifier.width(halfWidth).fillMaxHeight().clipToBounds()) {
+            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            Column(modifier = Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
                 DiffHeader("Working", Color(0xFF388E3C))
                 DiffEditorInstance(
                     content = data.rightContent,
                     highlights = data.rightHighlights,
                     fileName = state.file.name,
                     viewModel = viewModel,
-                    readOnly = false, // 右侧永远可编辑
-                    onEditorCreated = { rightEditorRef = it },
+                    readOnly = false,
+                    onEditorCreated = { 
+                        rightEditorRef = it
+                        state.activeDiffEditor = it
+                    },
+                    onContentChanged = { newContent ->
+                        viewModel.updateDiffContent(state, newContent)
+                    }
+                )
+            }
+        }
+    } else {
+        // 左右分栏模式
+        Row(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
+                DiffHeader("HEAD", Color(0xFFD32F2F))
+                DiffEditorInstance(
+                    content = data.leftContent,
+                    highlights = data.leftHighlights,
+                    fileName = state.file.name,
+                    viewModel = viewModel,
+                    readOnly = true,
+                    onEditorCreated = { leftEditorRef = it }
+                )
+            }
+            VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            Column(modifier = Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
+                DiffHeader("Working", Color(0xFF388E3C))
+                DiffEditorInstance(
+                    content = data.rightContent,
+                    highlights = data.rightHighlights,
+                    fileName = state.file.name,
+                    viewModel = viewModel,
+                    readOnly = false,
+                    onEditorCreated = { 
+                        rightEditorRef = it
+                        state.activeDiffEditor = it
+                    },
                     onContentChanged = { newContent ->
                         viewModel.updateDiffContent(state, newContent)
                     }
@@ -341,7 +384,7 @@ fun UnifiedDiffView(state: DiffEditorState, viewModel: EditorViewModel, data: Al
             fileName = state.file.name,
             viewModel = viewModel,
             readOnly = false,
-            onEditorCreated = {},
+            onEditorCreated = { state.activeDiffEditor = it },
             onContentChanged = { newContent ->
                 viewModel.updateDiffContent(state, newContent)
             }

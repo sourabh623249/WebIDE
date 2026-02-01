@@ -80,7 +80,7 @@ interface IEditorTab {
     val uniqueId: String
 }
 
-enum class DiffViewMode { SPLIT, UNIFIED }
+enum class DiffViewMode { SPLIT, SPLIT_VERTICAL, UNIFIED }
 
 class DiffEditorState(
     override val file: File,
@@ -91,6 +91,8 @@ class DiffEditorState(
     override val title: String = "${file.name} (Diff)"
     override val uniqueId: String = "diff_${file.absolutePath}_${UUID.randomUUID()}"
     var viewMode by mutableStateOf(DiffViewMode.SPLIT)
+
+    var activeDiffEditor: CodeEditor? = null
 }
 
 data class CodeEditorState(
@@ -543,10 +545,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun getActiveEditor(): CodeEditor? {
         val activeTab = openFiles.getOrNull(activeFileIndex) ?: return null
-        if (activeTab is CodeEditorState) {
-            return editorInstances[activeTab.file.absolutePath]
+        return when (activeTab) {
+            is CodeEditorState -> editorInstances[activeTab.file.absolutePath]
+            is DiffEditorState -> activeTab.activeDiffEditor
+            else -> null
         }
-        return null
     }
 
     fun undo() { getActiveEditor()?.undo() }
