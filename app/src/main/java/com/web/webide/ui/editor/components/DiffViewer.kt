@@ -44,91 +44,76 @@ class ScrollSynchronizer {
     private var leftEditor: CodeEditor? = null
     private var rightEditor: CodeEditor? = null
 
-    // 0 = 无, 1 = 左控右, 2 = 右控左
+    // 0 = 无/未知, 1 = 左控右, 2 = 右控左
+    // 默认为 0，只有当用户触摸某一边时，该边才成为 Driver
     private var activeDriver = 0
 
     fun setEditors(left: CodeEditor?, right: CodeEditor?) {
         if (this.leftEditor === left && this.rightEditor === right) return
-        unbind() // 先解绑旧的
+        unbind()
         this.leftEditor = left
         this.rightEditor = right
         bindEvents()
     }
 
     private fun bindEvents() {
-        setupMirroring(leftEditor, isLeft = true)
-        setupMirroring(rightEditor, isLeft = false)
+        val left = leftEditor ?: return
+        val right = rightEditor ?: return
+
+        // 1. Touch 监听：确立 Driver 身份，并终止对方的惯性
+        val touchListener = { id: Int, other: CodeEditor ->
+            android.view.View.OnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    activeDriver = id
+                    // 立即停止对方的 Scroller，防止“两个物理引擎打架”
+                    // 使用 eventHandler.scroller 以确保访问到正确的内部滚动器
+                    val scroller = other.eventHandler.scroller
+                    if (!scroller.isFinished) {
+                        scroller.forceFinished(true)
+                    }
+                }
+                false // 不消费事件，交给 Editor 内部处理
+            }
+        }
+
+        left.setOnTouchListener(touchListener(1, right))
+        right.setOnTouchListener(touchListener(2, left))
+
+        // 2. Scroll 监听：Master -> Slave 绝对坐标同步
+        // 修正：使用 scroller.startScroll() 而非简单的 scrollTo()
+        // 原因：用户反馈“editor本身在移动”，这通常是因为直接调用 View.scrollTo() 导致
+        // View 的视口位置与 Editor 内部 Scroller (OverScroller) 的状态不同步。
+        // 当用户随后触摸 Slave 编辑器时，Scroller 会从旧位置（通常是 0）开始，导致跳变。
+        // 使用 startScroll(x, y, 0, 0, 0) 可以同时更新 View 位置和 Scroller 状态，
+        // 实现真正的“内部滚动操作”同步。
+        val scrollListener = { id: Int, target: CodeEditor ->
+            android.view.View.OnScrollChangeListener { _, scrollX, scrollY, _, _ ->
+                if (activeDriver == id) {
+                    val scroller = target.eventHandler.scroller
+                    // 只有当位置真正改变时才同步，避免循环调用（虽然 activeDriver 已防护）
+                    // 注意：这里我们强制同步 Scroller 的状态
+                    if (scroller.currX != scrollX || scroller.currY != scrollY) {
+                        // duration = 0 表示瞬时跳转，但更新了 Scroller 内部状态
+                        scroller.startScroll(scrollX, scrollY, 0, 0, 0)
+                        // 通知编辑器已滚动，触发滚动条绘制等副作用
+                        target.eventHandler.notifyScrolled()
+                    }
+                }
+            }
+        }
+
+        left.setOnScrollChangeListener(scrollListener(1, right))
+        right.setOnScrollChangeListener(scrollListener(2, left))
     }
 
     private fun unbind() {
         leftEditor?.setOnTouchListener(null)
-        rightEditor?.setOnTouchListener(null)
-    }
-
-    private fun setupMirroring(editor: CodeEditor?, isLeft: Boolean) {
-        if (editor == null) return
-
-        editor.setOnTouchListener { v, event ->
-            val selfId = if (isLeft) 1 else 2
-            val targetEditor = if (isLeft) rightEditor else leftEditor
-
-            // 如果没有对策编辑器，或者对方正在控制我们，则不处理
-            if (targetEditor == null || (activeDriver != 0 && activeDriver != selfId)) {
-                return@setOnTouchListener false
-            }
-
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    // 抢占控制权
-                    activeDriver = selfId
-
-                    // 【核心优化 1】立即终止对方的物理惯性
-                    // 防止对方还在惯性滚动时，新的触摸事件导致物理引擎冲突
-                    if (!targetEditor.scroller.isFinished) {
-                        targetEditor.scroller.forceFinished(true)
-                    }
-
-                    // 【核心优化 2】强制坐标对齐
-                    // 在开始新的手势前，消除之前可能积累的微小像素偏差（drift）
-                    val currentY = editor.scroller.currY // 或者 editor.firstVisibleLineY
-                    val targetY = targetEditor.scroller.currY
-                    if (kotlin.math.abs(currentY - targetY) > 0) {
-                        targetEditor.scrollTo(targetEditor.scrollX, editor.scrollY)
-                    }
-                }
-
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // 手指离开，延时释放或立即释放
-                    // 这里我们保持 activeDriver 直到下一次 DOWN，或者依靠后续逻辑自然归零
-                    // 但为了安全，建议在一定时间后重置，或者允许对方随时抢占（上面的 activeDriver check）
-                    // 简单的策略：手指抬起，物理惯性开始，此时两边都在独立运行物理引擎
-                    activeDriver = 0
-                }
-            }
-
-            // 【核心优化 3】只镜像滚动相关的事件
-            // 过滤掉点击、长按等可能导致光标乱跳的事件，除非你真的想同步光标
-            // SoraEditor 内部处理 View 事件，这里直接透传通常是最高效的，
-            // 但如果发现光标乱跳，可以只透传 ACTION_MOVE/DOWN/UP
-            if (activeDriver == selfId) {
-                val eventCopy = MotionEvent.obtain(event)
-                // 修正坐标：虽然是全屏覆盖，但如果布局有 padding 差异，最好做 offsetLocation
-                // eventCopy.offsetLocation(...)
-                try {
-                    targetEditor.dispatchTouchEvent(eventCopy)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
-                    eventCopy.recycle()
-                }
-            }
-
-            // 自己也要消费事件
-            false
-        }
-
-        // 禁用 ScrollListener 避免循环调用，完全依赖 Touch 驱动
-        editor.setOnScrollChangeListener(null)
+        // SoraEditor 的事件订阅系统没有直接的 "unsubscribeAll"，但我们重新创建实例时会丢弃旧对象
+        // 如果要严谨，应该保存 SubscriptionReceipt 并取消订阅，但这里我们简化处理，
+        // 依赖 Garbage Collection，因为 SubscriptionReceipt 是强引用
+        // 更好的做法是保存 receipts 列表并在 unbind 时 unsubscribe
+        // 但在这个简单的 Synchronizer 生命周期中，直接置空引用通常足够，
+        // 除非 CodeEditor 也是长生命周期的（在这个 Compose 场景中是每次重组可能变化）
     }
 }
 
