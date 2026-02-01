@@ -239,7 +239,7 @@ fun GitChangesPageCompact(
         Surface(
             shadowElevation = 8.dp,
             tonalElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().imePadding()
         ) {
             Column(modifier = Modifier.padding(8.dp)) {
                 OutlinedTextField(

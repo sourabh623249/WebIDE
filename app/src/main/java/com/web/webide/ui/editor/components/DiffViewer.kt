@@ -25,8 +25,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.github.rosemoe.sora.event.SubscriptionReceipt
 import io.github.rosemoe.sora.event.TextSizeChangeEvent
+import io.github.rosemoe.sora.text.Content
+import io.github.rosemoe.sora.text.ContentListener
 import java.util.LinkedList
 import kotlin.math.max
 
@@ -194,7 +194,7 @@ fun DiffViewer(
         mutableStateOf<AlignedDiffResult?>(null)
     }
 
-    LaunchedEffect(state.originalContent, state.currentContent, state.isReadOnly) {
+    LaunchedEffect(state.originalContent, state.currentContent) {
         withContext(Dispatchers.Default) {
             diffData = DiffAligner.align(state.originalContent, state.currentContent)
         }
@@ -211,9 +211,9 @@ fun DiffViewer(
         } else {
             val data = diffData!!
             if (state.viewMode == DiffViewMode.SPLIT) {
-                SplitDiffView(state, viewModel, data, state.isReadOnly)
+                SplitDiffView(state, viewModel, data)
             } else {
-                UnifiedDiffView(state, viewModel, data, state.isReadOnly)
+                UnifiedDiffView(state, viewModel, data)
             }
         }
     }
@@ -249,16 +249,6 @@ fun DiffToolbar(state: DiffEditorState, data: AlignedDiffResult?) {
             }
             Spacer(Modifier.weight(1f))
             
-            // Read-only Toggle
-            IconButton(onClick = { state.isReadOnly = !state.isReadOnly }) {
-                Icon(
-                    if (state.isReadOnly) Icons.Default.Lock else Icons.Default.Edit,
-                    contentDescription = if (state.isReadOnly) "Read Only" else "Editable",
-                    tint = if (state.isReadOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
             IconButton(onClick = { state.viewMode = DiffViewMode.SPLIT }) {
                 Icon(
                     Icons.Default.ViewColumn, "Split",
@@ -279,8 +269,7 @@ fun DiffToolbar(state: DiffEditorState, data: AlignedDiffResult?) {
 fun SplitDiffView(
     state: DiffEditorState,
     viewModel: EditorViewModel,
-    data: AlignedDiffResult,
-    readOnly: Boolean
+    data: AlignedDiffResult
 ) {
     // 保持 Synchronizer 实例
     val synchronizer = remember { ScrollSynchronizer() }
@@ -310,7 +299,7 @@ fun SplitDiffView(
                     highlights = data.leftHighlights,
                     fileName = state.file.name,
                     viewModel = viewModel,
-                    readOnly = readOnly,
+                    readOnly = true, // 左侧永远只读
                     onEditorCreated = { leftEditorRef = it }
                 )
             }
@@ -322,8 +311,11 @@ fun SplitDiffView(
                     highlights = data.rightHighlights,
                     fileName = state.file.name,
                     viewModel = viewModel,
-                    readOnly = readOnly,
-                    onEditorCreated = { rightEditorRef = it }
+                    readOnly = false, // 右侧永远可编辑
+                    onEditorCreated = { rightEditorRef = it },
+                    onContentChanged = { newContent ->
+                        viewModel.updateDiffContent(state, newContent)
+                    }
                 )
             }
         }
@@ -331,15 +323,18 @@ fun SplitDiffView(
 }
 
 @Composable
-fun UnifiedDiffView(state: DiffEditorState, viewModel: EditorViewModel, data: AlignedDiffResult, readOnly: Boolean) {
+fun UnifiedDiffView(state: DiffEditorState, viewModel: EditorViewModel, data: AlignedDiffResult) {
     Column(modifier = Modifier.fillMaxSize()) {
         DiffEditorInstance(
             content = data.rightContent,
             highlights = data.rightHighlights,
             fileName = state.file.name,
             viewModel = viewModel,
-            readOnly = readOnly,
-            onEditorCreated = {}
+            readOnly = false,
+            onEditorCreated = {},
+            onContentChanged = { newContent ->
+                viewModel.updateDiffContent(state, newContent)
+            }
         )
     }
 }
@@ -365,11 +360,18 @@ fun DiffEditorInstance(
     fileName: String,
     viewModel: EditorViewModel,
     readOnly: Boolean,
-    onEditorCreated: (CodeEditor) -> Unit
+    onEditorCreated: (CodeEditor) -> Unit,
+    onContentChanged: ((String) -> Unit)? = null
 ) {
     val editorConfig = viewModel.editorConfig
     val primaryColor = MaterialTheme.colorScheme.primary
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    // 状态标志，防止无限循环
+    // 使用 remember 保存一个 MutableState，在 AndroidView 内部访问
+    val isUpdatingRef = remember { mutableStateOf(false) }
+    // 记录上一次用户输入的时间，用于防抖
+    val lastUserInputTime = remember { mutableStateOf(0L) }
 
     AndroidView(
         factory = { ctx ->
@@ -403,6 +405,33 @@ fun DiffEditorInstance(
                 } catch (_: Exception) {}
 
                 EditorColorSchemeManager.applyThemeColors(colorScheme, primaryColor, isDark)
+                
+                // 5. 监听内容变更
+                text.addContentListener(object : ContentListener {
+                    override fun beforeReplace(content: Content) {}
+                    override fun afterInsert(content: Content, startLine: Int, startColumn: Int, endLine: Int, endColumn: Int, inserted: CharSequence) {
+                        if (!isUpdatingRef.value) {
+                            lastUserInputTime.value = System.currentTimeMillis()
+                            // 过滤掉 Diff 对齐用的占位符 (\u200B)
+                            // 1. 先移除整行占位符 (防止产生空行)
+                            // 2. 再移除残留的占位符 (防止用户编辑了占位行)
+                            val cleanText = text.toString()
+                                .replace("\u200B\n", "")
+                                .replace("\u200B", "")
+                            onContentChanged?.invoke(cleanText)
+                        }
+                    }
+                    override fun afterDelete(content: Content, startLine: Int, startColumn: Int, endLine: Int, endColumn: Int, deleted: CharSequence) {
+                        if (!isUpdatingRef.value) {
+                            lastUserInputTime.value = System.currentTimeMillis()
+                            // 过滤掉 Diff 对齐用的占位符 (\u200B)
+                            val cleanText = text.toString()
+                                .replace("\u200B\n", "")
+                                .replace("\u200B", "")
+                            onContentChanged?.invoke(cleanText)
+                        }
+                    }
+                })
 
                 onEditorCreated(this)
             }
@@ -417,8 +446,27 @@ fun DiffEditorInstance(
 
             // 只有内容真变了才 Set，防止重置位置
             val contentChanged = editor.text.toString() != content
-            if (contentChanged) {
-                editor.setText(content)
+            // 防抖：如果用户最近在输入（1000ms内），则不要强制覆盖内容，除非内容差异巨大（这里简化为只看时间）
+            // 注意：这会导致对齐暂时失效，但能保证输入流畅和保存成功
+            val isUserTyping = (System.currentTimeMillis() - lastUserInputTime.value) < 1000
+            
+            // 如果是只读模式，或者是第一次加载，或者不是用户正在输入，则更新
+            if (contentChanged && (readOnly || !isUserTyping)) {
+                isUpdatingRef.value = true
+                try {
+                    val cursor = editor.cursor
+                    val line = cursor.leftLine
+                    val column = cursor.leftColumn
+                    
+                    editor.setText(content)
+                    
+                    // 尝试恢复光标位置
+                    if (line < editor.text.lineCount) {
+                         editor.setSelection(line, column.coerceAtMost(editor.text.getColumnCount(line)))
+                    }
+                } finally {
+                    isUpdatingRef.value = false
+                }
             }
             
             // 确保高亮始终同步，修复切换模式后的高亮偏移和丢失问题
@@ -435,7 +483,7 @@ fun DiffEditorInstance(
 // 4. Diff 算法逻辑 (LCS + Padding)
 // ==========================================
 object DiffAligner {
-    private const val PHANTOM_TEXT = " \n"
+    private const val PHANTOM_TEXT = "\u200B\n"
 
     private data class DiffLine(
         val text: String,

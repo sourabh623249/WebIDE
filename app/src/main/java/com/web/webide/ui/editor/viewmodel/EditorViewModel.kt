@@ -85,12 +85,11 @@ enum class DiffViewMode { SPLIT, UNIFIED }
 class DiffEditorState(
     override val file: File,
     val originalContent: String,
-    val currentContent: String
+    var currentContent: String
 ) : IEditorTab {
     override val title: String = "${file.name} (Diff)"
     override val uniqueId: String = "diff_${file.absolutePath}_${UUID.randomUUID()}"
     var viewMode by mutableStateOf(DiffViewMode.SPLIT)
-    var isReadOnly by mutableStateOf(true)
 }
 
 data class CodeEditorState(
@@ -275,6 +274,53 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 activeFileIndex = openFiles.lastIndex
             }
         }
+    }
+
+    fun updateDiffContent(state: DiffEditorState, newContent: String) {
+        if (state.currentContent == newContent) return
+        state.currentContent = newContent
+        
+        // Log update
+        android.util.Log.d("EditorViewModel", "updateDiffContent: ${state.file.name}, length=${newContent.length}")
+
+        // Sync to file
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                state.file.writeText(newContent)
+                android.util.Log.d("EditorViewModel", "File saved: ${state.file.absolutePath}")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.util.Log.e("EditorViewModel", "File save failed: ${e.message}")
+            }
+        }
+        
+        // Sync to open CodeEditor tabs if any
+        openFiles.filterIsInstance<CodeEditorState>()
+            .find { it.file.absolutePath == state.file.absolutePath }
+            ?.let { editorState ->
+                editorState.content = newContent
+                editorState.savedContent = newContent
+                
+                // 强制更新已存在的 Editor 实例
+                // 必须在主线程执行
+                viewModelScope.launch(Dispatchers.Main) {
+                    editorInstances[editorState.file.absolutePath]?.let { editor ->
+                        if (editor.text.toString() != newContent) {
+                            android.util.Log.d("EditorViewModel", "Syncing active editor instance")
+                            val cursor = editor.cursor
+                            val line = cursor.leftLine
+                            val column = cursor.leftColumn
+                            editor.setText(newContent)
+                            // 尝试保持光标位置 (尽力而为)
+                            try {
+                                if (line < editor.text.lineCount) {
+                                    editor.setSelection(line, column.coerceAtMost(editor.text.getColumnCount(line)))
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+            }
     }
 
     private fun loadTreeSitterLanguage(context: Context, extension: String): TsLanguage? {
