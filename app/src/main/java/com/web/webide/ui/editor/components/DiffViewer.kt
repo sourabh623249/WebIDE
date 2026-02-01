@@ -1,5 +1,6 @@
 package com.web.webide.ui.editor.components
 
+import android.annotation.SuppressLint
 import android.graphics.Color as AndroidColor
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -29,6 +30,8 @@ import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import io.github.rosemoe.sora.event.SubscriptionReceipt
+import io.github.rosemoe.sora.event.TextSizeChangeEvent
 import java.util.LinkedList
 import kotlin.math.max
 
@@ -43,6 +46,7 @@ import kotlin.math.max
 class ScrollSynchronizer {
     private var leftEditor: CodeEditor? = null
     private var rightEditor: CodeEditor? = null
+    private val receipts = ArrayList<SubscriptionReceipt<*>>()
 
     // 0 = 无/未知, 1 = 左控右, 2 = 右控左
     // 默认为 0，只有当用户触摸某一边时，该边才成为 Driver
@@ -56,13 +60,19 @@ class ScrollSynchronizer {
         bindEvents()
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun bindEvents() {
         val left = leftEditor ?: return
         val right = rightEditor ?: return
 
+        // 开启缩放功能
+        left.isScalable = true
+        right.isScalable = true
+
         // 1. Touch 监听：确立 Driver 身份，并终止对方的惯性
         val touchListener = { id: Int, other: CodeEditor ->
             android.view.View.OnTouchListener { _, event ->
+                // ACTION_DOWN 确立主控方
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                     activeDriver = id
                     // 立即停止对方的 Scroller，防止“两个物理引擎打架”
@@ -104,10 +114,31 @@ class ScrollSynchronizer {
 
         left.setOnScrollChangeListener(scrollListener(1, right))
         right.setOnScrollChangeListener(scrollListener(2, left))
+
+        // 3. Zoom 监听：同步缩放比例
+        val zoomListener = { id: Int, target: CodeEditor ->
+            io.github.rosemoe.sora.event.EventReceiver<TextSizeChangeEvent> { event, _ ->
+                if (activeDriver == id) {
+                    if (target.textSizePx != event.newTextSize) {
+                        target.setTextSizePx(event.newTextSize)
+                    }
+                }
+            }
+        }
+
+        receipts.add(left.subscribeEvent(TextSizeChangeEvent::class.java, zoomListener(1, right)))
+        receipts.add(right.subscribeEvent(TextSizeChangeEvent::class.java, zoomListener(2, left)))
     }
 
     private fun unbind() {
         leftEditor?.setOnTouchListener(null)
+        leftEditor?.setOnScrollChangeListener(null)
+        rightEditor?.setOnTouchListener(null)
+        rightEditor?.setOnScrollChangeListener(null)
+        
+        receipts.forEach { it.unsubscribe() }
+        receipts.clear()
+        
         // SoraEditor 的事件订阅系统没有直接的 "unsubscribeAll"，但我们重新创建实例时会丢弃旧对象
         // 如果要严谨，应该保存 SubscriptionReceipt 并取消订阅，但这里我们简化处理，
         // 依赖 Garbage Collection，因为 SubscriptionReceipt 是强引用
