@@ -83,9 +83,14 @@ object EditorColorSchemeManager {
             setColor(EditorColorScheme.COMPLETION_WND_CORNER, surfaceVariant)
             setColor(EditorColorScheme.COMPLETION_WND_ITEM_CURRENT, adjustAlpha(primary, 0.2f))
             
+            // 文本操作弹窗 (双击/长按弹出的菜单)
+            setColor(EditorColorScheme.TEXT_ACTION_WINDOW_BACKGROUND, surfaceColor)
+            setColor(EditorColorScheme.TEXT_ACTION_WINDOW_ICON_COLOR, primary)
+            
             // 括号匹配
             setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_FOREGROUND, primary)
-            setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, adjustAlpha(primary, 0.15f))
+            setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, AndroidColor.TRANSPARENT)
+            setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, AndroidColor.TRANSPARENT)
             setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_UNDERLINE, primary)
             
             // 下划线
@@ -138,9 +143,14 @@ object EditorColorSchemeManager {
             setColor(EditorColorScheme.COMPLETION_WND_CORNER, surfaceVariant)
             setColor(EditorColorScheme.COMPLETION_WND_ITEM_CURRENT, adjustAlpha(primary, 0.15f))
             
+            // 文本操作弹窗 (双击/长按弹出的菜单)
+            setColor(EditorColorScheme.TEXT_ACTION_WINDOW_BACKGROUND, surfaceColor)
+            setColor(EditorColorScheme.TEXT_ACTION_WINDOW_ICON_COLOR, primary)
+            
             // 括号匹配
             setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_FOREGROUND, primary)
-            setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, adjustAlpha(primary, 0.1f))
+            setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, AndroidColor.TRANSPARENT)
+            setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, AndroidColor.TRANSPARENT)
             setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_UNDERLINE, primary)
             
             // 下划线

@@ -559,7 +559,11 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                 }
                                 EditCode(
                                     modifier = Modifier.fillMaxSize(),
-                                    viewModel = viewModel
+                                    viewModel = viewModel,
+                                    onShowSearch = { isOpenSearch = true },
+                                    snackbarHostState = snackbarHostState,
+                                    navController = navController,
+                                    folderName = folderName
                                 )
                             }
                         }
@@ -686,6 +690,10 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
 fun EditCode(
     modifier: Modifier = Modifier,
     viewModel: EditorViewModel,
+    onShowSearch: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+    navController: NavController,
+    folderName: String
 ) {
     val openFiles = viewModel.openFiles
     val activeFileIndex = viewModel.activeFileIndex
@@ -793,7 +801,14 @@ fun EditCode(
                             com.web.webide.ui.editor.components.CodeEditorView(
                                 modifier = Modifier.fillMaxSize(),
                                 state = tab,
-                                viewModel = viewModel
+                                viewModel = viewModel,
+                                onShowSearch = onShowSearch,
+                                onRun = {
+                                    scope.launch {
+                                        viewModel.saveAllModifiedFiles(snackbarHostState)
+                                        navController.safeNavigate("preview/$folderName")
+                                    }
+                                }
                             )
                         }
                         is com.web.webide.ui.editor.viewmodel.DiffEditorState -> {

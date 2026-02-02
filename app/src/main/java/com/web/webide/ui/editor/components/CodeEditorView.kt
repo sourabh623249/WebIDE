@@ -20,35 +20,33 @@
 package com.web.webide.ui.editor.components
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.view.ViewGroup
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Segment
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.web.webide.R
 import com.web.webide.ui.ThemeViewModel
 import com.web.webide.ui.ThemeViewModelFactory
 import com.web.webide.ui.editor.viewmodel.CodeEditorState
@@ -60,7 +58,7 @@ import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry
 import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
 import io.github.rosemoe.sora.widget.CodeEditor
-import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
+import io.github.rosemoe.sora.widget.component.EditorTextActionWindow
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
 import org.eclipse.tm4e.core.registry.IThemeSource
@@ -75,7 +73,9 @@ private const val THEME_DARK = "darcula"     // 深色主题文件名 (assets/te
 fun CodeEditorView(
     modifier: Modifier = Modifier,
     state: CodeEditorState,
-    viewModel: EditorViewModel
+    viewModel: EditorViewModel,
+    onShowSearch: () -> Unit = {},
+    onRun: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -91,6 +91,7 @@ fun CodeEditorView(
         }
     }
     var isEditorReady by remember { mutableStateOf(false) }
+    var showCommandDialog by remember { mutableStateOf(false) }
 
     val editorConfig = viewModel.editorConfig
 
@@ -126,6 +127,23 @@ fun CodeEditorView(
 
     val editor = remember(state.file.absolutePath) { viewModel.getOrCreateEditor(context, state) }
 
+    // 添加自定义文本操作按钮 (在双击/长按选区后的弹窗中)
+    DisposableEffect(editor) {
+        val textActionWindow = editor.getComponent(EditorTextActionWindow::class.java)
+        val provider = object : EditorTextActionWindow.ExtraButtonProvider {
+            override fun getIconResource(): Int = R.drawable.ic_command // 使用 Command 图标
+            override fun getContentDescription(): String = "命令"
+            override fun shouldShowButton(editor: CodeEditor): Boolean = true
+            override fun onButtonClick(editor: CodeEditor) {
+                showCommandDialog = true
+            }
+        }
+        textActionWindow.addExtraButtonProvider(provider)
+        onDispose {
+            textActionWindow.removeExtraButtonProvider(provider)
+        }
+    }
+
     // 初始化 TextMate
     LaunchedEffect(Unit) {
         if (!TextMateInitializer.isReady()) {
@@ -153,19 +171,124 @@ fun CodeEditorView(
                 // 注意：EditorColorSchemeManager 会覆盖掉 TextMate 主题里的背景色，这正是我们想要的
                 viewModel.updateEditorTheme(seedColor, isDark)
 
-                // 4. 自定义括号匹配高亮样式 (去掉遮罩和方框)
-                // 我们不使用 BracketHighlighter.kt，因为 CodeEditor 自带了更高效的渲染引擎。
-                // 通过修改 ColorScheme，我们可以实现相同的视觉效果。
-                val scheme = editor.colorScheme
-                scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, Color.TRANSPARENT) // 去掉背景遮罩
-                scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, Color.TRANSPARENT)     // 去掉外框
-                scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_FOREGROUND, seedColor.toArgb()) // 设置文字颜色为主题色
-
                 // 强制重绘
                 editor.invalidate()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    if (showCommandDialog) {
+        val focusRequester = remember { FocusRequester() }
+
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showCommandDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .wrapContentHeight(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    // 保持输入法焦点的隐形输入框
+                    TextField(
+                        value = "",
+                        onValueChange = {},
+                        modifier = Modifier
+                            .focusRequester(focusRequester)
+                            .size(1.dp)
+                            .alpha(0f)
+                    )
+
+                    val actions = remember {
+                        listOf(
+                            Triple("剪切", Icons.Filled.ContentCut) { editor.cutText() },
+                            Triple("复制", Icons.Filled.ContentCopy) { editor.copyText() },
+                            Triple("粘贴", Icons.Filled.ContentPaste) { editor.pasteText() },
+                            Triple("全选", Icons.Filled.SelectAll) { editor.selectAll() },
+                            Triple("选择单行", Icons.AutoMirrored.Filled.Segment) {
+                                val cursor = editor.cursor
+                                val line = cursor.leftLine
+                                if (line < editor.text.lineCount) {
+                                    // 尝试使用 setSelectionRegion (如果可用) 或者回退到仅移动光标
+                                    try {
+                                        editor.setSelectionRegion(line, 0, line, editor.text.getColumnCount(line))
+                                    } catch (_: Exception) {
+                                        editor.setSelection(line, 0)
+                                    }
+                                }
+                            },
+                            Triple("保存", Icons.Filled.Save) {
+                                viewModel.onContentChanged(state.file, editor.text.toString(), saveToFile = true)
+                                state.onContentSaved()
+                            },
+                            Triple("保存全部", Icons.Filled.Save) {
+                                viewModel.openFiles.filterIsInstance<CodeEditorState>().filter { it.isModified }.forEach { s ->
+                                    viewModel.onContentChanged(s.file, s.content, saveToFile = true)
+                                    s.onContentSaved()
+                                }
+                            },
+                            Triple("撤销", Icons.AutoMirrored.Filled.Undo) { editor.undo() },
+                            Triple("运行", Icons.Filled.PlayArrow) {
+                                onRun()
+                            },
+                            Triple("只读模式", Icons.Filled.Lock) {
+                                editor.isEditable = !editor.isEditable
+                            },
+                            Triple("搜索替换", Icons.Filled.Search) {
+                                onShowSearch()
+                            },
+                            Triple("重载", Icons.Filled.Refresh) {
+                                viewModel.reloadAllEditors(context)
+                            }
+                        )
+                    }
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(1),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp) // 自适应高度，最大400dp
+                    ) {
+                        items(actions) { (label, icon, action) ->
+                            FilledTonalButton(
+                                onClick = {
+                                    action()
+                                    showCommandDialog = false
+                                },
+                                contentPadding = PaddingValues(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
         }
     }
 
@@ -191,12 +314,6 @@ fun CodeEditorView(
                     view.setScaleTextSizes(2f, 300f)
 
                     editor.setHighlightBracketPair(true)
-
-
-                    val scheme = editor.colorScheme
-                    scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, Color.TRANSPARENT) // 去掉背景遮罩
-                    scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, Color.TRANSPARENT)     // 去掉外框
-                    scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_FOREGROUND, seedColor.toArgb()) // 设置文字颜色为主题色
 
                     if (editorConfig.showInvisibles) {
                         view.nonPrintablePaintingFlags =
