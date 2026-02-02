@@ -443,7 +443,12 @@ fun DiffEditorInstance(
                 isHighlightCurrentLine = true // 始终显示当前行高亮，即使在只读模式下
 
                 // Remove zoom limits
-                setScaleTextSizes(2f, 300f)
+                setScaleTextSizes(2f, 100f)
+
+
+                colorScheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, android.graphics.Color.TRANSPARENT) // 去掉背景遮罩
+                colorScheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, android.graphics.Color.TRANSPARENT)     // 去掉外框
+
 
                 // --- 核心优化 ---
                 // 1. 关闭换行：保证每一行的“高度”绝对一致，防止左右行高错位

@@ -20,19 +20,28 @@
 package com.web.webide.ui.editor.components
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Typeface
 import android.view.ViewGroup
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -51,10 +60,12 @@ import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry
 import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
 import io.github.rosemoe.sora.widget.CodeEditor
+import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
 import org.eclipse.tm4e.core.registry.IThemeSource
 import java.io.File
+
 
 // 定义主题名称常量
 private const val THEME_LIGHT = "quietlight" // 浅色主题文件名 (assets/textmate/quietlight.json)
@@ -142,6 +153,14 @@ fun CodeEditorView(
                 // 注意：EditorColorSchemeManager 会覆盖掉 TextMate 主题里的背景色，这正是我们想要的
                 viewModel.updateEditorTheme(seedColor, isDark)
 
+                // 4. 自定义括号匹配高亮样式 (去掉遮罩和方框)
+                // 我们不使用 BracketHighlighter.kt，因为 CodeEditor 自带了更高效的渲染引擎。
+                // 通过修改 ColorScheme，我们可以实现相同的视觉效果。
+                val scheme = editor.colorScheme
+                scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, Color.TRANSPARENT) // 去掉背景遮罩
+                scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, Color.TRANSPARENT)     // 去掉外框
+                scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_FOREGROUND, seedColor.toArgb()) // 设置文字颜色为主题色
+
                 // 强制重绘
                 editor.invalidate()
             } catch (e: Exception) {
@@ -168,6 +187,16 @@ fun CodeEditorView(
                     view.isWordwrap = editorConfig.wordWrap
                     view.tabWidth = editorConfig.tabWidth
                     view.setFoldingEnabled(editorConfig.codeFolding)
+                    // Remove zoom limits
+                    view.setScaleTextSizes(2f, 300f)
+
+                    editor.setHighlightBracketPair(true)
+
+
+                    val scheme = editor.colorScheme
+                    scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BACKGROUND, Color.TRANSPARENT) // 去掉背景遮罩
+                    scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_BORDER, Color.TRANSPARENT)     // 去掉外框
+                    scheme.setColor(EditorColorScheme.HIGHLIGHTED_DELIMITERS_FOREGROUND, seedColor.toArgb()) // 设置文字颜色为主题色
 
                     if (editorConfig.showInvisibles) {
                         view.nonPrintablePaintingFlags =
