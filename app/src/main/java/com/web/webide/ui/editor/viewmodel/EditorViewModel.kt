@@ -69,8 +69,11 @@ import org.eclipse.tm4e.core.registry.IThemeSource
 // LSP
 import io.github.rosemoe.sora.lsp.editor.LspEditor
 import io.github.rosemoe.sora.lsp.editor.LspProject
+import io.github.rosemoe.sora.lsp.events.EventListener
+import io.github.rosemoe.sora.lsp.events.EventContext
 import io.github.rosemoe.sora.lsp.client.languageserver.serverdefinition.CustomLanguageServerDefinition
 import com.web.webide.lsp.ProotStreamConnectionProvider
+import org.eclipse.lsp4j.Diagnostic
 
 // ================== 核心数据结构 ==================
 
@@ -105,6 +108,7 @@ data class CodeEditorState(
     var savedContent by mutableStateOf("")
     val isModified: Boolean get() = content != savedContent
     var lspEditor: LspEditor? = null
+    var diagnostics: List<Diagnostic> by mutableStateOf(emptyList())
 
     fun onContentLoaded(loadedContent: String) {
         content = loadedContent
@@ -707,6 +711,15 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         return Pair(cursor.leftLine + 1, cursor.leftColumn + 1)
     }
 
+    fun jumpTo(line: Int, column: Int) {
+        val editor = getActiveEditor() ?: return
+        try {
+            // SoraEditor uses 0-based indexing for line and column
+            editor.setSelection(line, column)
+            editor.ensureSelectionVisible()
+        } catch (_: Exception) {}
+    }
+
     private fun setupLspForEditor(context: Context, state: CodeEditorState, editor: CodeEditor, textMateLanguage: TextMateLanguage?) {
         val fileExtension = state.file.extension.lowercase()
         if (fileExtension !in listOf("html", "htm", "css", "js", "javascript")) return
@@ -739,6 +752,17 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             lspEditor.wrapperLanguage = textMateLanguage
             lspEditor.editor = editor
             state.lspEditor = lspEditor
+            
+            lspEditor.eventManager.addEventListener(object : EventListener {
+                override val eventName = "editor/publishDiagnostics"
+                override fun handle(context: EventContext) {
+                    val data = context.getOrNull<List<Diagnostic>>("data")
+                    if (data != null) {
+                        state.diagnostics = data
+                    }
+                }
+            })
+
             viewModelScope.launch(Dispatchers.IO) { try { lspEditor.connect() } catch (_: Exception){} }
         } catch (e: Exception) { e.printStackTrace() }
     }
