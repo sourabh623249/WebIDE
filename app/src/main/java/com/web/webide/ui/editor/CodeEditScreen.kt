@@ -71,7 +71,7 @@ import com.web.webide.ui.editor.components.JumpLinePanel
 import com.web.webide.ui.editor.components.SearchPanel
 import com.web.webide.ui.editor.git.GitPanel
 import com.web.webide.ui.editor.git.GitViewModel
-import com.web.webide.ui.editor.git.SidebarTab
+import com.web.webide.ui.editor.git.SidebarTab.*
 import com.web.webide.ui.editor.viewmodel.EditorViewModel
 import com.web.webide.ui.terminal.AlpineManager
 import kotlinx.coroutines.Dispatchers
@@ -224,7 +224,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
             viewModel.onInitialLoaderShown()
         }
     }
-    var selectedTab by remember { mutableStateOf(SidebarTab.FILES) }
+    var selectedTab by remember { mutableStateOf(FILES) }
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
 
@@ -247,16 +247,16 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         Spacer(modifier = Modifier.height(16.dp))
                         // 1. 文件树按钮
                         NavigationRailItem(
-                            selected = selectedTab == SidebarTab.FILES,
-                            onClick = { selectedTab = SidebarTab.FILES },
+                            selected = selectedTab == FILES,
+                            onClick = { selectedTab = FILES },
                             icon = { Icon(Icons.Default.Folder, contentDescription = "文件") },
                             label = { Text("文件树") }
                         )
                         // 2. Git 按钮
                         NavigationRailItem(
-                            selected = selectedTab == SidebarTab.GIT,
+                            selected = selectedTab == GIT,
                             onClick = {
-                                selectedTab = SidebarTab.GIT
+                                selectedTab = GIT
                                 gitViewModel.refreshAll()
                                       },
                             icon = {
@@ -294,7 +294,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         .weight(1f)
                         .fillMaxHeight()) {
                         when (selectedTab) {
-                            SidebarTab.FILES -> {
+                            FILES -> {
                                 // 原有的文件管理器
                                 FileManagerDrawer(
                                     projectPath = projectPath,
@@ -308,7 +308,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                     }
                                 )
                             }
-                            SidebarTab.GIT -> {
+                            GIT -> {
                                 // 新增的空 Git 面板
                                 GitPanel(
                                     projectPath = projectPath,

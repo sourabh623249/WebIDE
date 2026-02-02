@@ -246,7 +246,7 @@ fun GitChangesPageCompact(
                     value = message,
                     onValueChange = { message = it },
                     placeholder = { Text("提交信息...") },
-                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    modifier = Modifier.fillMaxWidth(),//.height(80.dp),
                     textStyle = MaterialTheme.typography.bodyMedium
                 )
                 Row(
