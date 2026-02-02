@@ -442,6 +442,9 @@ fun DiffEditorInstance(
                 isFocusable = true // 必须开启
                 isHighlightCurrentLine = true // 始终显示当前行高亮，即使在只读模式下
 
+                // Remove zoom limits
+                setScaleTextSizes(2f, 300f)
+
                 // --- 核心优化 ---
                 // 1. 关闭换行：保证每一行的“高度”绝对一致，防止左右行高错位
                 isWordwrap = false

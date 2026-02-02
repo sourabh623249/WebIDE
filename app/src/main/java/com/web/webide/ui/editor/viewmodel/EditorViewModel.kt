@@ -271,6 +271,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             isEnabled = true
             setText(state.content)
 
+            // Remove zoom limits
+            setScaleTextSizes(2f, 300f)
+
             applyLanguageToEditor(this, state.file.extension)
 
             setSelection(0, 0)
