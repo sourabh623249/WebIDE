@@ -562,22 +562,8 @@ fun AICodingPanel(
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Icon / Logo
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                    .padding(4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Simple "AI" text or icon
-                                Text("AI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
-                            }
-                            
-                            Spacer(modifier = Modifier.width(12.dp))
-                            
                             Text(
-                                text = "AI Assistant",
+                                text = "Ai-Coding",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -811,8 +797,9 @@ fun AICodingPanel(
                                 detectDragGestures { change, dragAmount ->
                                     if (state.isMaximized) return@detectDragGestures
                                     change.consume()
-                                    val newW = (state.windowWidth + pxToDp(dragAmount.x)).coerceIn(200.dp, (layoutMaxWidth - 40.dp).coerceAtLeast(200.dp))
-                                    val newH = (state.windowHeight + pxToDp(dragAmount.y)).coerceIn(200.dp, (layoutMaxHeight - 40.dp).coerceAtLeast(200.dp))
+                                    // Remove upper limit as requested for unrestricted resizing
+                                    val newW = (state.windowWidth + pxToDp(dragAmount.x)).coerceAtLeast(200.dp)
+                                    val newH = (state.windowHeight + pxToDp(dragAmount.y)).coerceAtLeast(200.dp)
                                     state.windowWidth = newW
                                     state.windowHeight = newH
                                 }
