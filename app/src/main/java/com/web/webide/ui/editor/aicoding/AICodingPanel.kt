@@ -25,11 +25,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +42,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +53,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
+import kotlinx.coroutines.delay
+
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.foundation.shape.CircleShape
 
 @Composable
 fun AICodingPanel(
@@ -95,14 +112,18 @@ fun AICodingPanel(
             transitionSpec = { spring(stiffness = Spring.StiffnessLow) },
             label = "width"
         ) { expanded ->
-            if (expanded) state.windowWidth else 32.dp
+            if (expanded) {
+                if (state.isMaximized) layoutMaxWidth else state.windowWidth
+            } else 32.dp
         }
 
         val height by transition.animateDp(
             transitionSpec = { spring(stiffness = Spring.StiffnessLow) },
             label = "height"
         ) { expanded ->
-            if (expanded) state.windowHeight else 64.dp
+            if (expanded) {
+                if (state.isMaximized) layoutMaxHeight else state.windowHeight
+            } else 64.dp
         }
         
         val alpha by transition.animateFloat(
@@ -152,14 +173,35 @@ fun AICodingPanel(
             animationSpec = spring(stiffness = Spring.StiffnessLow)
         )
         
-        LaunchedEffect(state.isExpanded, state.dockSide) {
+        LaunchedEffect(state.isExpanded, state.dockSide, state.isMaximized) {
              if (state.isExpanded) {
-                 // Slide to center-ish or last known position
-                 val targetX = (maxWidthPx - dpToPx(state.windowWidth)) / 2
-                 val targetY = state.windowOffset.y.coerceIn(0f, maxHeightPx - dpToPx(state.windowHeight))
-                 
-                 launch { animX.animateTo(targetX, spring(stiffness = Spring.StiffnessLow)) }
-                 launch { animY.animateTo(targetY, spring(stiffness = Spring.StiffnessLow)) }
+                 if (state.isMaximized) {
+                     launch { animX.animateTo(0f, spring(stiffness = Spring.StiffnessLow)) }
+                     launch { animY.animateTo(0f, spring(stiffness = Spring.StiffnessLow)) }
+                 } else {
+                     // Calculate target position: Center or Last Known
+                     val targetW = dpToPx(state.windowWidth)
+                     val targetH = dpToPx(state.windowHeight)
+                     
+                     val targetX: Float
+                     val targetY: Float
+                     
+                     if (state.lastFloatingPosition != null) {
+                         targetX = state.lastFloatingPosition!!.x
+                         targetY = state.lastFloatingPosition!!.y
+                     } else {
+                         // Default to Horizontal Center, Vertical follows Tab
+                         targetX = (maxWidthPx - targetW) / 2f
+                         targetY = animY.value
+                     }
+                     
+                     // Ensure within bounds
+                     val constrainedX = targetX.coerceIn(0f, maxWidthPx - targetW)
+                     val constrainedY = targetY.coerceIn(0f, maxHeightPx - targetH)
+                     
+                     launch { animX.animateTo(constrainedX, spring(stiffness = Spring.StiffnessLow)) }
+                     launch { animY.animateTo(constrainedY, spring(stiffness = Spring.StiffnessLow)) }
+                 }
              } else {
                  // Slide to dock
                  // Only animate if NOT dragging (dragging controls offset directly)
@@ -173,22 +215,25 @@ fun AICodingPanel(
         }
         
         // Sync state offset for restoration
-        if (!state.isDragging) {
+        if (!state.isDragging && !state.isMaximized) {
             state.windowOffset = Offset(animX.value, animY.value)
         }
 
-        // The Window/Tab Surface
-        Surface(
+        // The Window/Tab
+        // We use a Box as the container to handle positioning and the outer glow effect
+        // The Surface inside handles the content and clipping
+        Box(
             modifier = Modifier
                 .offset { IntOffset(animX.value.roundToInt(), animY.value.roundToInt()) }
                 .size(width, height)
                 .alpha(alpha)
-                .clip(RoundedCornerShape(
+                .oneShotGlow(
+                    trigger = state.isExpanded,
                     topStart = currentTopStartRadius,
-                    bottomStart = currentBottomStartRadius,
                     topEnd = currentTopEndRadius,
-                    bottomEnd = currentBottomEndRadius
-                ))
+                    bottomEnd = currentBottomEndRadius,
+                    bottomStart = currentBottomStartRadius
+                )
                 .pointerInput(state.isExpanded) {
                     if (!state.isExpanded) {
                         // Custom drag handler to capture velocity for inertia
@@ -271,23 +316,40 @@ fun AICodingPanel(
                             }
                         }
                     )
-                },
-            color = if (state.isExpanded) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = 8.dp,
-            shadowElevation = 8.dp
+                }
         ) {
-            if (state.isExpanded) {
-                // Expanded Content
-                Box(modifier = Modifier.fillMaxSize()) {
-                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Title Bar
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(
+                    topStart = currentTopStartRadius,
+                    topEnd = currentTopEndRadius,
+                    bottomEnd = currentBottomEndRadius,
+                    bottomStart = currentBottomStartRadius
+                ),
+                color = if (state.isExpanded) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp
+            ) {
+                if (state.isExpanded) {
+                    // Expanded Content
+                    Box(modifier = Modifier.fillMaxSize()) {
+                         Column(modifier = Modifier.fillMaxSize()) {
+                            // Title Bar
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(32.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .height(48.dp) // Taller title bar
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            MaterialTheme.colorScheme.surfaceContainer
+                                        )
+                                    )
+                                )
                                 .pointerInput(Unit) {
                                     detectDragGestures { change, dragAmount ->
+                                        if (state.isMaximized) return@detectDragGestures
                                         change.consume()
                                         scope.launch {
                                             val currentW = dpToPx(width)
@@ -297,36 +359,89 @@ fun AICodingPanel(
                                             
                                             animX.snapTo(constrainedX)
                                             animY.snapTo(constrainedY)
+                                            
+                                            // Update last known floating position
+                                            state.lastFloatingPosition = Offset(constrainedX, constrainedY)
                                         }
                                     }
                                 }
-                                .padding(horizontal = 8.dp),
+                                .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.DragHandle,
-                                contentDescription = "Drag",
-                                modifier = Modifier.size(16.dp)
+                            // Icon / Logo
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                    .padding(4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Simple "AI" text or icon
+                                Text("AI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                            }
+                            
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            Text(
+                                text = "AI Assistant",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = { state.isExpanded = false }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Minimize, "Minimize", modifier = Modifier.size(16.dp))
+                            
+                            // Maximize/Restore Button
+                            IconButton(
+                                onClick = {
+                                    if (state.isMaximized) {
+                                        // Restore
+                                        state.isMaximized = false
+                                        state.windowWidth = state.restoreWidth
+                                        state.windowHeight = state.restoreHeight
+                                    } else {
+                                        // Maximize
+                                        state.restoreWidth = state.windowWidth
+                                        state.restoreHeight = state.windowHeight
+                                        state.isMaximized = true
+                                    }
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CropSquare,
+                                    contentDescription = "Maximize",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            // Minimize/Dock Button
+                            IconButton(onClick = { state.isExpanded = false }, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Minimize",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                         }
                         
-                        // Main Content Placeholder
-                        Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                            Text("AI Coding Assistant")
-                        }
+                        // Main Content Area (Empty as requested)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surface)
+                        )
                     }
                     
-                    // Resize Handle (Bottom Right)
+                    // Custom Resize Handle
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .size(24.dp)
                             .pointerInput(Unit) {
                                 detectDragGestures { change, dragAmount ->
+                                    if (state.isMaximized) return@detectDragGestures
                                     change.consume()
                                     val newW = (state.windowWidth + pxToDp(dragAmount.x)).coerceIn(200.dp, layoutMaxWidth - 40.dp)
                                     val newH = (state.windowHeight + pxToDp(dragAmount.y)).coerceIn(200.dp, layoutMaxHeight - 40.dp)
@@ -334,26 +449,127 @@ fun AICodingPanel(
                                     state.windowHeight = newH
                                 }
                             }
-                    ) {
-                        // Visual indicator for resize
+                            .drawBehind {
+                                val strokeWidth = 2.dp.toPx()
+                                val color = Color.Gray.copy(alpha = 0.6f)
+                                
+                                // Draw stylish diagonal grip lines
+                                val spacing = 5.dp.toPx()
+                                val sizePx = size.width
+                                
+                                // Draw 3 lines with increasing length
+                                for (i in 0..2) {
+                                    // Start from bottom-right, go up-left
+                                    // Line 1 (smallest, closest to corner)
+                                    // Line 3 (largest, furthest from corner)
+                                    val startX = sizePx - (spacing * (i + 1))
+                                    val startY = size.height
+                                    val endX = sizePx
+                                    val endY = size.height - (spacing * (i + 1))
+                                    
+                                    drawLine(
+                                        color = color,
+                                        start = Offset(startX, startY),
+                                        end = Offset(endX, endY),
+                                        strokeWidth = strokeWidth,
+                                        cap = StrokeCap.Round
+                                    )
+                                }
+                            }
+                    )
+                    }
+                } else {
+                    // Collapsed Content
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
-                            painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_sort_by_size), // Placeholder
-                            contentDescription = "Resize",
-                            modifier = Modifier.size(12.dp).align(Alignment.BottomEnd).alpha(0.5f)
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Expand",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.rotate(arrowRotation)
                         )
                     }
                 }
-            } else {
-                // Collapsed Content
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "Expand",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.rotate(arrowRotation)
-                    )
-                }
             }
+        }
+    }
+}
+
+// One-shot Glow Effect
+fun Modifier.oneShotGlow(
+    trigger: Boolean,
+    topStart: Dp,
+    topEnd: Dp,
+    bottomEnd: Dp,
+    bottomStart: Dp
+): Modifier = composed {
+    val density = LocalDensity.current
+    val alphaAnim = remember { Animatable(0f) }
+    val rotateAnim = remember { Animatable(0f) }
+    
+    LaunchedEffect(trigger) {
+        if (trigger) {
+            alphaAnim.snapTo(1f)
+            rotateAnim.snapTo(0f)
+            
+            // Play briefly: Rotate 2 loops over 2s, then fade out
+            launch {
+                delay(1500)
+                alphaAnim.animateTo(0f, tween(500))
+            }
+            launch {
+                rotateAnim.animateTo(720f, tween(2000, easing = LinearEasing))
+            }
+        } else {
+            alphaAnim.snapTo(0f)
+        }
+    }
+    
+    val colors = listOf(
+        Color(0xFF00FFFF), // Cyan
+        Color(0xFF0000FF), // Blue
+        Color(0xFFFF00FF), // Magenta
+        Color(0xFF00FFFF)  // Cyan
+    )
+    
+    val colorInts = remember(colors) { colors.map { it.toArgb() }.toIntArray() }
+    
+    drawBehind {
+        if (alphaAnim.value > 0f) {
+            val topStartPx = with(density) { topStart.toPx() }
+            val topEndPx = with(density) { topEnd.toPx() }
+            val bottomEndPx = with(density) { bottomEnd.toPx() }
+            val bottomStartPx = with(density) { bottomStart.toPx() }
+
+            val path = Path().apply {
+                addRoundRect(
+                    RoundRect(
+                        rect = Rect(offset = Offset.Zero, size = size),
+                        topLeft = CornerRadius(topStartPx),
+                        topRight = CornerRadius(topEndPx),
+                        bottomRight = CornerRadius(bottomEndPx),
+                        bottomLeft = CornerRadius(bottomStartPx)
+                    )
+                )
+            }
+            
+            // Create a SweepGradient shader and rotate it using a local matrix.
+            // This rotates the *colors* around the center, while keeping the *path* (border shape) stationary.
+            val shader = android.graphics.SweepGradient(
+                center.x,
+                center.y,
+                colorInts,
+                null
+            )
+            val matrix = android.graphics.Matrix()
+            matrix.setRotate(rotateAnim.value, center.x, center.y)
+            shader.setLocalMatrix(matrix)
+            
+            drawPath(
+                path = path,
+                brush = ShaderBrush(shader),
+                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round),
+                alpha = alphaAnim.value
+            )
         }
     }
 }

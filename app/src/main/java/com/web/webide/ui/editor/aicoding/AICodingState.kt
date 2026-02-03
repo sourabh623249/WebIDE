@@ -20,7 +20,12 @@ class AICodingState {
     var windowWidth by mutableStateOf(300.dp)
     var windowHeight by mutableStateOf(400.dp)
     var windowOffset by mutableStateOf(Offset.Zero)
+    var lastFloatingPosition by mutableStateOf<Offset?>(null)
     var isDragging by mutableStateOf(false)
+    
+    var isMaximized by mutableStateOf(false)
+    internal var restoreWidth by mutableStateOf(300.dp)
+    internal var restoreHeight by mutableStateOf(400.dp)
 }
 
 @Composable
