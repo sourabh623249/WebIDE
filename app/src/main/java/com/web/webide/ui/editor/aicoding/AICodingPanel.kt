@@ -182,15 +182,12 @@ fun AICodingPanel(
                      // Calculate target position: Center or Last Known
                      val targetW = dpToPx(state.windowWidth)
                      val targetH = dpToPx(state.windowHeight)
-                     
-                     val targetX: Float
-                     val targetY: Float
-                     
+
                      // Always Default to Horizontal Center, Vertical follows Tab (Inertia friendly)
                      // We intentionally ignore lastFloatingPosition for X to ensure it always centers nicely on open
                      // unless the user is dragging it RIGHT NOW (which is handled by drag logic, not here)
-                     targetX = (maxWidthPx - targetW) / 2f
-                     targetY = animY.value
+                     val targetX: Float = (maxWidthPx - targetW) / 2f
+                     val targetY: Float = animY.value
                      
                      // Ensure within bounds
                      val constrainedX = targetX.coerceIn(0f, maxWidthPx - targetW)
