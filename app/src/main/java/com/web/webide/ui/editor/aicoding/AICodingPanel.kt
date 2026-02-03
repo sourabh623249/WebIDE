@@ -42,19 +42,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
@@ -192,14 +183,6 @@ fun AICodingPanel(
                 .offset { IntOffset(animX.value.roundToInt(), animY.value.roundToInt()) }
                 .size(width, height)
                 .alpha(alpha)
-                .then(
-                    if (state.isExpanded) Modifier.glowBorder(
-                        topStart = currentTopStartRadius,
-                        topEnd = currentTopEndRadius,
-                        bottomEnd = currentBottomEndRadius,
-                        bottomStart = currentBottomStartRadius
-                    ) else Modifier
-                )
                 .clip(RoundedCornerShape(
                     topStart = currentTopStartRadius,
                     bottomStart = currentBottomStartRadius,
@@ -375,56 +358,4 @@ fun AICodingPanel(
     }
 }
 
-// GLSL-like Glow Border Effect
-fun Modifier.glowBorder(
-    topStart: Dp = 12.dp,
-    topEnd: Dp = 12.dp,
-    bottomEnd: Dp = 12.dp,
-    bottomStart: Dp = 12.dp
-): Modifier = composed {
-    val density = LocalDensity.current
-    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "glow")
-    val angle by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = tween(2000, easing = androidx.compose.animation.core.LinearEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
-        ),
-        label = "angle"
-    )
-    
-    val colors = listOf(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.tertiary,
-        MaterialTheme.colorScheme.secondary,
-        MaterialTheme.colorScheme.primary
-    )
-    
-    this.drawBehind {
-        rotate(angle) {
-            val topStartPx = with(density) { topStart.toPx() }
-            val topEndPx = with(density) { topEnd.toPx() }
-            val bottomEndPx = with(density) { bottomEnd.toPx() }
-            val bottomStartPx = with(density) { bottomStart.toPx() }
 
-            val path = Path().apply {
-                addRoundRect(
-                    RoundRect(
-                        rect = Rect(offset = Offset.Zero, size = size),
-                        topLeft = CornerRadius(topStartPx),
-                        topRight = CornerRadius(topEndPx),
-                        bottomRight = CornerRadius(bottomEndPx),
-                        bottomLeft = CornerRadius(bottomStartPx)
-                    )
-                )
-            }
-
-            drawPath(
-                path = path,
-                brush = Brush.sweepGradient(colors),
-                style = Stroke(width = 3.dp.toPx())
-            )
-        }
-    }
-}
