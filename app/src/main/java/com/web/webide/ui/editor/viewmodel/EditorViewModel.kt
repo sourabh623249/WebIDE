@@ -20,12 +20,13 @@ package com.web.webide.ui.editor.viewmodel
 import android.app.Application
 import android.content.Context
 import android.view.ViewGroup
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.itsaky.androidide.treesitter.TSLanguage
@@ -624,9 +625,13 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun onInitialLoaderShown() { hasShownInitialLoader = true }
     fun updateLastBuild(path: String?) { lastBuiltApk = if (path != null) File(path) else null }
 
-    fun updateEditorTheme(seedColor: Color, isDark: Boolean) {
+    fun updateEditorTheme(colorScheme: ColorScheme) {
         editorInstances.values.forEach { editor ->
-            EditorColorSchemeManager.applyThemeColors(editor.colorScheme, seedColor, isDark)
+            EditorColorSchemeManager.applyThemeColors(editor.colorScheme, colorScheme)
+            // 根据 Surface 亮度判断深色/浅色，或者直接使用 ColorScheme 的颜色
+            // 这里我们直接用 colorScheme 的 Surface 颜色作为背景
+            val isDark = colorScheme.background.luminance() < 0.5f
+            
             if (isDark) {
                 editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFF1E1F22.toInt())
                 editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFFFFFFFF.toInt())

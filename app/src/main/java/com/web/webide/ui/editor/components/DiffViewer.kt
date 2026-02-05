@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -417,8 +416,6 @@ fun DiffEditorInstance(
     onContentChanged: ((String) -> Unit)? = null
 ) {
     val editorConfig = viewModel.editorConfig
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     // 状态标志，防止无限循环
     // 使用 remember 保存一个 MutableState，在 AndroidView 内部访问
@@ -429,6 +426,7 @@ fun DiffEditorInstance(
     // 修复：使用 rememberUpdatedState 确保回调始终是最新的
     val currentOnContentChanged by rememberUpdatedState(onContentChanged)
 
+    val currentColorScheme = MaterialTheme.colorScheme
     AndroidView(
         factory = { ctx ->
             CodeEditor(ctx).apply {
@@ -469,7 +467,7 @@ fun DiffEditorInstance(
                     viewModel.applyLanguageToEditor(this, java.io.File(fileName).extension)
                 } catch (_: Exception) {}
 
-                EditorColorSchemeManager.applyThemeColors(colorScheme, primaryColor, isDark)
+                EditorColorSchemeManager.applyThemeColors(colorScheme, currentColorScheme)
                 
                 // 5. 监听内容变更
                 text.addContentListener(object : ContentListener {
@@ -503,8 +501,8 @@ fun DiffEditorInstance(
         },
         update = { editor ->
             // 确保每次重组时都更新主题色，以响应系统主题变化
-            EditorColorSchemeManager.applyThemeColors(editor.colorScheme, primaryColor, isDark)
-            
+            EditorColorSchemeManager.applyThemeColors(editor.colorScheme, currentColorScheme)
+
             // 确保语言设置正确 (Fix: 防止重组后语言丢失或未更新)
             try {
                 val currentExt = java.io.File(fileName).extension

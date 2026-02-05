@@ -33,12 +33,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.materialkolor.PaletteStyle
+
 class ThemeViewModel(private val repository: ThemeDataStoreRepository) : ViewModel() {
 
     val themeState: StateFlow<ThemeState> = repository.themeStateFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = ThemeState(0, 0, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S, false, Color(0xFF6750A4), false)
+        initialValue = ThemeState(
+            0, 0, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S, false, Color(0xFF6750A4), PaletteStyle.TonalSpot, false
+        )
     )
 
     fun saveThemeConfig(
@@ -46,13 +50,14 @@ class ThemeViewModel(private val repository: ThemeDataStoreRepository) : ViewMod
         selectedThemeIndex: Int,
         customColor: Color,
         isMonetEnabled: Boolean,
-        isCustom: Boolean
+        isCustom: Boolean,
+        style: PaletteStyle = PaletteStyle.TonalSpot
     ) {
         // [Debug Log] ViewModel接收层
-        LogCatcher.d("ThemeDebug_VM", "ViewModel准备保存: Monet=$isMonetEnabled, Custom=$isCustom, Color=${customColor.value}")
+        LogCatcher.d("ThemeDebug_VM", "ViewModel准备保存: Monet=$isMonetEnabled, Custom=$isCustom, Style=$style, Color=${customColor.value}")
 
         viewModelScope.launch {
-            repository.saveThemeConfig(selectedModeIndex, selectedThemeIndex, customColor, isMonetEnabled, isCustom)
+            repository.saveThemeConfig(selectedModeIndex, selectedThemeIndex, customColor, isMonetEnabled, isCustom, style)
         }
     }
 }

@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.rememberNavController
 import com.web.webide.core.utils.*
 import com.web.webide.ui.ThemeViewModel
 import com.web.webide.ui.ThemeViewModelFactory
@@ -75,6 +76,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val context = LocalContext.current
+            val navController = rememberNavController()
             val themeViewModel: ThemeViewModel = viewModel(factory = ThemeViewModelFactory(context))
             val themeState by themeViewModel.themeState.collectAsState()
 
@@ -125,6 +127,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 App(
+                                    navController = navController,
                                     themeViewModel = themeViewModel,
                                     logConfigRepository = logConfigRepository,
                                     logConfigState = logConfigState

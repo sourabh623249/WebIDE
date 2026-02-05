@@ -129,6 +129,7 @@ fun CodeEditorView(
         else -> systemDark
     }
     val seedColor = if (themeState.isCustomTheme) themeState.customColor else MaterialTheme.colorScheme.primary
+    val colorScheme = MaterialTheme.colorScheme
 
     val editor = remember(state.file.absolutePath) { viewModel.getOrCreateEditor(context, state) }
 
@@ -161,7 +162,7 @@ fun CodeEditorView(
     }
 
     // 🔥 核心逻辑：监听深色模式变化，切换高亮主题 🔥
-    LaunchedEffect(seedColor, isDark, isEditorReady) {
+    LaunchedEffect(seedColor, isDark, isEditorReady, colorScheme) {
         if (isEditorReady) {
             try {
                 // 1. 切换 TextMate 的基础语法高亮主题
@@ -174,7 +175,7 @@ fun CodeEditorView(
 
                 // 3. 再次调用 ViewModel 更新 UI 颜色 (行号、背景色等，使其匹配 App 的 Material 主题)
                 // 注意：EditorColorSchemeManager 会覆盖掉 TextMate 主题里的背景色，这正是我们想要的
-                viewModel.updateEditorTheme(seedColor, isDark)
+                viewModel.updateEditorTheme(colorScheme)
 
                 // 强制重绘
                 editor.invalidate()

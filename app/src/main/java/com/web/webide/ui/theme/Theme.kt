@@ -31,13 +31,19 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.materialkolor.rememberDynamicColorScheme
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import com.web.webide.core.utils.LogCatcher
 import com.web.webide.core.utils.ThemeState
-import kotlin.math.pow
 
 // ============================================================================
 // 1. 预设主题 (保留原样)
@@ -660,273 +666,8 @@ private val TakoLightColorScheme = lightColorScheme(
 )
 
 // ============================================================================
-// 2. 核心算法: HCT Color Space Functions (Google Material Utilities)
+// 2. 核心算法: 使用 Material Kolor 库替代手动实现
 // ============================================================================
-// ============================================================================
-// 2. 核心算法: HCT Color Space Functions (最终修复版)
-// ============================================================================
-
-// 1. 扩展函数：将 Color 转为 HCT (Hue, Chroma, Tone)
-private fun Color.toHct(): Triple<Float, Float, Float> {
-    // 1. RGB (0-1) 转 线性 RGB
-    val r = red.toLinear()
-    val g = green.toLinear()
-    val b = blue.toLinear()
-
-    // 2. 线性 RGB 转 XYZ
-    // 🔥 修复点 1：XYZ 标准空间通常基于 0-100 的范围，而 RGB 是 0-1。
-    // 这里的转换矩阵算出来的是 0-1 范围的 XYZ，所以必须 * 100，否则算出来的 L (亮度) 永远接近 0。
-    val x = (r * 0.4124564f + g * 0.3575761f + b * 0.1804375f) * 100f
-    val y = (r * 0.2126729f + g * 0.7151522f + b * 0.0721750f) * 100f
-    val z = (r * 0.0193339f + g * 0.1191920f + b * 0.9503041f) * 100f
-
-    // 3. XYZ 转 Lab
-    // 这里的 reference white (95.047, 100, 108.883) 对应 D65 光源
-    val l = 116f * labF(y / 100f) - 16f
-    val a = 500f * (labF(x / 95.047f) - labF(y / 100f))
-    val bLab = 200f * (labF(y / 100f) - labF(z / 108.883f))
-
-    // 4. Lab 转 HCT (Hue, Chroma)
-    val hue = Math.toDegrees(kotlin.math.atan2(bLab.toDouble(), a.toDouble())).toFloat()
-    val hueNormalized = if (hue < 0) hue + 360f else hue
-    val chroma = kotlin.math.sqrt(a * a + bLab * bLab)
-
-    // Tone 直接就是 Lab 的 L
-    return Triple(hueNormalized, chroma, l)
-}
-
-// 2. 内部函数：HCT 转 原始 RGB (可能包含越界值)
-private fun hctToRgbRaw(h: Float, c: Float, t: Float): FloatArray {
-    // 1. HCT 转 Lab
-    val hRad = Math.toRadians(h.toDouble())
-    val a = (c * kotlin.math.cos(hRad)).toFloat()
-    val b = (c * kotlin.math.sin(hRad)).toFloat()
-    val l = t
-
-    // 2. Lab 转 XYZ
-    val fy = (l + 16f) / 116f
-    val fx = a / 500f + fy
-    val fz = fy - b / 200f
-
-    // 这里算出来的是 0-100 范围的 XYZ
-    val x = 95.047f * labFInv(fx)
-    val y = 100f * labFInv(fy)
-    val z = 108.883f * labFInv(fz)
-
-    // 3. XYZ 转 线性 RGB (注意这里除以 100 归一化到 0-1)
-    val rLinear = (x * 3.2404542f - y * 1.5371385f - z * 0.4985314f) / 100f
-    val gLinear = (-x * 0.9692660f + y * 1.8760108f + z * 0.0415560f) / 100f
-    val bLinear = (x * 0.0556434f - y * 0.2040259f + z * 1.0572252f) / 100f
-
-    return floatArrayOf(rLinear, gLinear, bLinear)
-}
-
-// 3. 检查 RGB 是否在 sRGB 色域内 (允许极小误差)
-private fun isRgbInGamut(rgb: FloatArray): Boolean {
-    val epsilon = 0.0001f
-    // 只需要检查线性值是否在 0-1 之间即可，不需要先转 Gamma
-    return (rgb[0] >= -epsilon && rgb[0] <= 1.0f + epsilon) &&
-            (rgb[1] >= -epsilon && rgb[1] <= 1.0f + epsilon) &&
-            (rgb[2] >= -epsilon && rgb[2] <= 1.0f + epsilon)
-}
-
-// 4. 主函数：HCT 转 Color (带色域映射 Gamut Mapping)
-// 解决 0665DC 这种高饱和蓝色的关键
-private fun hctToColor(h: Float, c: Float, t: Float): Color {
-    // 步骤 A: 尝试直接转换
-    val rawRgb = hctToRgbRaw(h, c, t)
-
-    if (isRgbInGamut(rawRgb)) {
-        return Color(
-            red = rawRgb[0].fromLinear().coerceIn(0f, 1f),
-            green = rawRgb[1].fromLinear().coerceIn(0f, 1f),
-            blue = rawRgb[2].fromLinear().coerceIn(0f, 1f)
-        )
-    }
-
-    // 步骤 B: 如果溢出，二分查找最佳 Chroma
-    // 保持 Hue 和 Tone 不变，降低 Chroma 直到颜色能显示
-    var low = 0f
-    var high = c
-    var bestChroma = 0f
-
-    // 6次迭代足以达到肉眼无法区分的精度
-    for (i in 0..6) {
-        val mid = (low + high) / 2
-        if (isRgbInGamut(hctToRgbRaw(h, mid, t))) {
-            bestChroma = mid
-            low = mid
-        } else {
-            high = mid
-        }
-    }
-
-    val finalRgb = hctToRgbRaw(h, bestChroma, t)
-    return Color(
-        red = finalRgb[0].fromLinear().coerceIn(0f, 1f),
-        green = finalRgb[1].fromLinear().coerceIn(0f, 1f),
-        blue = finalRgb[2].fromLinear().coerceIn(0f, 1f)
-    )
-}
-
-// 5. 数学辅助函数 (Gamma 校正与 Lab 函数)
-private fun Float.toLinear(): Float =
-    if (this <= 0.04045f) this / 12.92f else ((this + 0.055f) / 1.055f).pow(2.4f)
-
-private fun Float.fromLinear(): Float =
-    if (this <= 0.0031308f) this * 12.92f else 1.055f * this.pow(1f / 2.4f) - 0.055f
-
-private fun labF(t: Float): Float {
-    val delta = 6f / 29f
-    return if (t > delta * delta * delta) t.pow(1f / 3f) else t / (3f * delta * delta) + 4f / 29f
-}
-
-private fun labFInv(t: Float): Float {
-    val delta = 6f / 29f
-    return if (t > delta) t * t * t else 3f * delta * delta * (t - 4f / 29f)
-}
-
-// ============================================================================
-// 修复后的 scheme 生成逻辑
-// ============================================================================
-// ============================================================================
-// 3. 最终方案：智能调整 Tone 值的生成逻辑 (拒绝惨白，保留色彩)
-// ============================================================================
-// ============================================================================
-// 4. 终极方案：高保真色彩模式 (拒绝粉色/发白，还原纯正色彩)
-// ============================================================================
-// ============================================================================
-// 5. 最终完美版：自适应亮度方案 (修复红色变橙、黄色变暗的问题)
-// ============================================================================
-// ============================================================================
-// 6. 最终核弹版：原生直出方案 (What You See Is What You Get)
-// ============================================================================
-private fun generateDynamicColorScheme(seedColor: Color, isDark: Boolean): ColorScheme {
-    val (hue, chroma, tone) = seedColor.toHct()
-
-    // --- 1. 智能主色处理 (防止色彩偏移) ---
-    val primaryColor = if (isDark) {
-        if (tone < 40f) {
-            val safeTone = 55f
-            hctToColor(hue, chroma.coerceAtLeast(48f), safeTone)
-        } else {
-            seedColor
-        }
-    } else {
-        if (tone < 50f) seedColor else hctToColor(hue, chroma.coerceAtLeast(48f), 40f)
-    }
-
-    val (_, _, primaryToneActual) = primaryColor.toHct()
-    val onPrimaryColor = if (primaryToneActual > 60f) Color.Black else Color.White
-
-    // --- 2. 背景与容器色系 (关键：解决 Card 颜色问题) ---
-    // 给背景一点点主色的倾向 (Tint)，让界面不那么死板，但要很低饱和度
-    val bgChroma = if (chroma < 5f) 0f else chroma * 0.06f // 稍微增加一点色相倾向
-
-    if (isDark) {
-        // [深色模式] Surface 逻辑：Tone 值越低越黑
-        // 传统的 Surface 是 6，Elevated Card 需要比背景亮
-        return darkColorScheme(
-            primary = primaryColor,
-            onPrimary = onPrimaryColor,
-            primaryContainer = hctToColor(hue, chroma, 30f),
-            onPrimaryContainer = hctToColor(hue, chroma, 90f),
-
-            secondary = hctToColor(hue, chroma, 50f), // 稍微降低饱和度或改变色相可以做复色，这里保持同色系
-            onSecondary = Color.White,
-            secondaryContainer = hctToColor(hue, chroma, 30f),
-            onSecondaryContainer = hctToColor(hue, chroma, 90f),
-
-            tertiary = hctToColor((hue + 60f) % 360f, chroma * 0.7f, 60f),
-            onTertiary = Color.White,
-            tertiaryContainer = hctToColor((hue + 60f) % 360f, chroma * 0.7f, 30f),
-            onTertiaryContainer = hctToColor((hue + 60f) % 360f, chroma * 0.7f, 90f),
-
-            error = Color(0xFFFFB4AB),
-            onError = Color(0xFF690005),
-            errorContainer = Color(0xFF93000A),
-            onErrorContainer = Color(0xFFFFDAD6),
-
-            // --- 核心修复：完整的 Surface 定义 ---
-            background = hctToColor(hue, bgChroma, 6f),      // 极黑背景
-            onBackground = hctToColor(hue, bgChroma, 90f),
-
-            surface = hctToColor(hue, bgChroma, 6f),         // 与背景一致
-            onSurface = hctToColor(hue, bgChroma, 90f),
-
-            // FilledCard 默认用这个 (Tone 30 -> 明显的卡片感)
-            surfaceVariant = hctToColor(hue, bgChroma, 30f),
-            onSurfaceVariant = hctToColor(hue, bgChroma, 80f),
-
-            // 边框
-            outline = hctToColor(hue, bgChroma, 60f),
-            outlineVariant = hctToColor(hue, bgChroma, 30f),
-
-            // --- 容器系列 (ElevatedCard, BottomSheet 用这些) ---
-            // 越 Low 越接近背景，越 High 越亮
-            surfaceContainerLowest = hctToColor(hue, bgChroma, 4f),
-            surfaceContainerLow = hctToColor(hue, bgChroma, 10f),  // ElevatedCard 默认
-            surfaceContainer = hctToColor(hue, bgChroma, 12f),
-            surfaceContainerHigh = hctToColor(hue, bgChroma, 17f),
-            surfaceContainerHighest = hctToColor(hue, bgChroma, 22f),
-
-            inverseSurface = hctToColor(hue, bgChroma, 90f),
-            inverseOnSurface = hctToColor(hue, bgChroma, 20f),
-            inversePrimary = hctToColor(hue, chroma, 80f),
-            scrim = Color.Black
-        )
-    } else {
-        // [浅色模式] Surface 逻辑：Tone 值越高越白
-        return lightColorScheme(
-            primary = primaryColor,
-            onPrimary = onPrimaryColor,
-            primaryContainer = hctToColor(hue, chroma, 90f),
-            onPrimaryContainer = hctToColor(hue, chroma, 10f),
-
-            secondary = hctToColor(hue, chroma, 40f),
-            onSecondary = Color.White,
-            secondaryContainer = hctToColor(hue, chroma, 90f),
-            onSecondaryContainer = hctToColor(hue, chroma, 10f),
-
-            tertiary = hctToColor((hue + 60f) % 360f, chroma * 0.7f, 40f),
-            onTertiary = Color.White,
-            tertiaryContainer = hctToColor((hue + 60f) % 360f, chroma * 0.7f, 90f),
-            onTertiaryContainer = hctToColor((hue + 60f) % 360f, chroma * 0.7f, 10f),
-
-            error = Color(0xFFB3261E),
-            onError = Color.White,
-            errorContainer = Color(0xFFFFDAD6),
-            onErrorContainer = Color(0xFF410002),
-
-            // --- 核心修复：完整的 Surface 定义 ---
-            background = hctToColor(hue, bgChroma, 98f),     // 极亮背景
-            onBackground = hctToColor(hue, bgChroma, 10f),
-
-            surface = hctToColor(hue, bgChroma, 98f),
-            onSurface = hctToColor(hue, bgChroma, 10f),
-
-            // FilledCard 默认用这个 (Tone 90 -> 灰调卡片)
-            surfaceVariant = hctToColor(hue, bgChroma, 90f),
-            onSurfaceVariant = hctToColor(hue, bgChroma, 30f),
-
-            outline = hctToColor(hue, bgChroma, 50f),
-            outlineVariant = hctToColor(hue, bgChroma, 80f),
-
-            // --- 容器系列 ---
-            // 浅色模式下，Lowest 是纯白，High 稍微变灰
-            surfaceContainerLowest = hctToColor(hue, bgChroma, 100f),
-            surfaceContainerLow = hctToColor(hue, bgChroma, 96f), // ElevatedCard 默认
-            surfaceContainer = hctToColor(hue, bgChroma, 94f),
-            surfaceContainerHigh = hctToColor(hue, bgChroma, 92f),
-            surfaceContainerHighest = hctToColor(hue, bgChroma, 90f),
-
-            inverseSurface = hctToColor(hue, bgChroma, 20f),
-            inverseOnSurface = hctToColor(hue, bgChroma, 95f),
-            inversePrimary = hctToColor(hue, chroma, 80f),
-            scrim = Color.Black
-        )
-    }
-}
 
 @Composable
 fun MyComposeApplicationTheme(
@@ -934,7 +675,7 @@ fun MyComposeApplicationTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-
+    
     val useDarkTheme = when (themeState.selectedModeIndex) {
         0 -> isSystemInDarkTheme()
         1 -> false
@@ -942,55 +683,168 @@ fun MyComposeApplicationTheme(
         else -> isSystemInDarkTheme()
     }
 
-    // [Debug Log] 每次重组时打印当前主题状态
-    // 注意：日志刷屏的话可以去掉这个SideEffect
     SideEffect {
         LogCatcher.d("ThemeDebug_Apply", "应用主题中... Monet=${themeState.isMonetEnabled}, Custom=${themeState.isCustomTheme}, 模式=$useDarkTheme, 自定义色=${themeState.customColor.value}")
     }
 
-    val colorScheme = when {
-        // 1. 动态色彩 (Monet)
-        themeState.isMonetEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Monet (系统壁纸取色)")
-            if (useDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        // 2. 自定义颜色
-        themeState.isCustomTheme -> {
-            LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Custom (用户自定义), 颜色: ${themeState.customColor.value}")
-            generateDynamicColorScheme(themeState.customColor, useDarkTheme)
-        }
-
-        // 3. 预设主题列表
-        else -> {
-            LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Preset (预设主题), Index: ${themeState.selectedThemeIndex}")
-            when (themeState.selectedThemeIndex) {
-                // 请确保这些变量在文件顶部有定义
-                0 -> if (useDarkTheme) CatppuccinDarkColorScheme else CatppuccinLightColorScheme
-                1 -> if (useDarkTheme) AppleDarkColorScheme else AppleLightColorScheme
-                2 -> if (useDarkTheme) LavenderDarkColorScheme else LavenderLightColorScheme
-                3 -> if (useDarkTheme) MidnightDarkColorScheme else MidnightLightColorScheme
-                4 -> if (useDarkTheme) NordDarkColorScheme else NordLightColorScheme
-                5 -> if (useDarkTheme) StrawberryDarkColorScheme else StrawberryLightColorScheme
-                6 -> if (useDarkTheme) TakoDarkColorScheme else TakoLightColorScheme
-                // 默认兜底 (保留原有的 DarkColorScheme / LightColorScheme)
-                else -> if (useDarkTheme) DarkColorScheme else LightColorScheme
+    // Determine target color scheme
+    val targetColorScheme = if (themeState.isCustomTheme) {
+        LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Custom (用户自定义 - Material Kolor), 颜色: ${themeState.customColor.value}")
+        rememberDynamicColorScheme(
+            seedColor = themeState.customColor,
+            isDark = useDarkTheme,
+            style = themeState.style,
+            isAmoled = false
+        )
+    } else {
+        when {
+            themeState.isMonetEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Monet (系统壁纸取色)")
+                if (useDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+            else -> {
+                LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Preset (预设主题), Index: ${themeState.selectedThemeIndex}")
+                when (themeState.selectedThemeIndex) {
+                    0 -> if (useDarkTheme) CatppuccinDarkColorScheme else CatppuccinLightColorScheme
+                    1 -> if (useDarkTheme) AppleDarkColorScheme else AppleLightColorScheme
+                    2 -> if (useDarkTheme) LavenderDarkColorScheme else LavenderLightColorScheme
+                    3 -> if (useDarkTheme) MidnightDarkColorScheme else MidnightLightColorScheme
+                    4 -> if (useDarkTheme) NordDarkColorScheme else NordLightColorScheme
+                    5 -> if (useDarkTheme) StrawberryDarkColorScheme else StrawberryLightColorScheme
+                    6 -> if (useDarkTheme) TakoDarkColorScheme else TakoLightColorScheme
+                    else -> if (useDarkTheme) DarkColorScheme else LightColorScheme
+                }
             }
         }
     }
+
+    // Animate the color scheme
+    val animatedColorScheme by animateColorSchemeAsState(
+        targetColorScheme = targetColorScheme,
+        animationSpec = tween(durationMillis = 300)
+    )
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDarkTheme
         }
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography, // 确保你有定义 Typography
+        colorScheme = animatedColorScheme,
+        typography = Typography,
         content = content
     )
+}
+
+@Composable
+fun animateColorSchemeAsState(
+    targetColorScheme: ColorScheme,
+    animationSpec: AnimationSpec<Color> = tween(durationMillis = 300)
+): State<ColorScheme> {
+    val primary = animateColorAsState(targetColorScheme.primary, animationSpec)
+    val onPrimary = animateColorAsState(targetColorScheme.onPrimary, animationSpec)
+    val primaryContainer = animateColorAsState(targetColorScheme.primaryContainer, animationSpec)
+    val onPrimaryContainer = animateColorAsState(targetColorScheme.onPrimaryContainer, animationSpec)
+    val inversePrimary = animateColorAsState(targetColorScheme.inversePrimary, animationSpec)
+    val secondary = animateColorAsState(targetColorScheme.secondary, animationSpec)
+    val onSecondary = animateColorAsState(targetColorScheme.onSecondary, animationSpec)
+    val secondaryContainer = animateColorAsState(targetColorScheme.secondaryContainer, animationSpec)
+    val onSecondaryContainer = animateColorAsState(targetColorScheme.onSecondaryContainer, animationSpec)
+    val tertiary = animateColorAsState(targetColorScheme.tertiary, animationSpec)
+    val onTertiary = animateColorAsState(targetColorScheme.onTertiary, animationSpec)
+    val tertiaryContainer = animateColorAsState(targetColorScheme.tertiaryContainer, animationSpec)
+    val onTertiaryContainer = animateColorAsState(targetColorScheme.onTertiaryContainer, animationSpec)
+    val background = animateColorAsState(targetColorScheme.background, animationSpec)
+    val onBackground = animateColorAsState(targetColorScheme.onBackground, animationSpec)
+    val surface = animateColorAsState(targetColorScheme.surface, animationSpec)
+    val onSurface = animateColorAsState(targetColorScheme.onSurface, animationSpec)
+    val surfaceVariant = animateColorAsState(targetColorScheme.surfaceVariant, animationSpec)
+    val onSurfaceVariant = animateColorAsState(targetColorScheme.onSurfaceVariant, animationSpec)
+    val surfaceTint = animateColorAsState(targetColorScheme.surfaceTint, animationSpec)
+    val inverseSurface = animateColorAsState(targetColorScheme.inverseSurface, animationSpec)
+    val inverseOnSurface = animateColorAsState(targetColorScheme.inverseOnSurface, animationSpec)
+    val error = animateColorAsState(targetColorScheme.error, animationSpec)
+    val onError = animateColorAsState(targetColorScheme.onError, animationSpec)
+    val errorContainer = animateColorAsState(targetColorScheme.errorContainer, animationSpec)
+    val onErrorContainer = animateColorAsState(targetColorScheme.onErrorContainer, animationSpec)
+    val outline = animateColorAsState(targetColorScheme.outline, animationSpec)
+    val outlineVariant = animateColorAsState(targetColorScheme.outlineVariant, animationSpec)
+    val scrim = animateColorAsState(targetColorScheme.scrim, animationSpec)
+    val surfaceBright = animateColorAsState(targetColorScheme.surfaceBright, animationSpec)
+    val surfaceDim = animateColorAsState(targetColorScheme.surfaceDim, animationSpec)
+    val surfaceContainer = animateColorAsState(targetColorScheme.surfaceContainer, animationSpec)
+    val surfaceContainerHigh = animateColorAsState(targetColorScheme.surfaceContainerHigh, animationSpec)
+    val surfaceContainerHighest = animateColorAsState(targetColorScheme.surfaceContainerHighest, animationSpec)
+    val surfaceContainerLow = animateColorAsState(targetColorScheme.surfaceContainerLow, animationSpec)
+    val surfaceContainerLowest = animateColorAsState(targetColorScheme.surfaceContainerLowest, animationSpec)
+    val primaryFixed = animateColorAsState(targetColorScheme.primaryFixed, animationSpec)
+    val primaryFixedDim = animateColorAsState(targetColorScheme.primaryFixedDim, animationSpec)
+    val onPrimaryFixed = animateColorAsState(targetColorScheme.onPrimaryFixed, animationSpec)
+    val onPrimaryFixedVariant = animateColorAsState(targetColorScheme.onPrimaryFixedVariant, animationSpec)
+    val secondaryFixed = animateColorAsState(targetColorScheme.secondaryFixed, animationSpec)
+    val secondaryFixedDim = animateColorAsState(targetColorScheme.secondaryFixedDim, animationSpec)
+    val onSecondaryFixed = animateColorAsState(targetColorScheme.onSecondaryFixed, animationSpec)
+    val onSecondaryFixedVariant = animateColorAsState(targetColorScheme.onSecondaryFixedVariant, animationSpec)
+    val tertiaryFixed = animateColorAsState(targetColorScheme.tertiaryFixed, animationSpec)
+    val tertiaryFixedDim = animateColorAsState(targetColorScheme.tertiaryFixedDim, animationSpec)
+    val onTertiaryFixed = animateColorAsState(targetColorScheme.onTertiaryFixed, animationSpec)
+    val onTertiaryFixedVariant = animateColorAsState(targetColorScheme.onTertiaryFixedVariant, animationSpec)
+
+    return remember(targetColorScheme) {
+        derivedStateOf {
+            ColorScheme(
+                primary = primary.value,
+                onPrimary = onPrimary.value,
+                primaryContainer = primaryContainer.value,
+                onPrimaryContainer = onPrimaryContainer.value,
+                inversePrimary = inversePrimary.value,
+                secondary = secondary.value,
+                onSecondary = onSecondary.value,
+                secondaryContainer = secondaryContainer.value,
+                onSecondaryContainer = onSecondaryContainer.value,
+                tertiary = tertiary.value,
+                onTertiary = onTertiary.value,
+                tertiaryContainer = tertiaryContainer.value,
+                onTertiaryContainer = onTertiaryContainer.value,
+                background = background.value,
+                onBackground = onBackground.value,
+                surface = surface.value,
+                onSurface = onSurface.value,
+                surfaceVariant = surfaceVariant.value,
+                onSurfaceVariant = onSurfaceVariant.value,
+                surfaceTint = surfaceTint.value,
+                inverseSurface = inverseSurface.value,
+                inverseOnSurface = inverseOnSurface.value,
+                error = error.value,
+                onError = onError.value,
+                errorContainer = errorContainer.value,
+                onErrorContainer = onErrorContainer.value,
+                outline = outline.value,
+                outlineVariant = outlineVariant.value,
+                scrim = scrim.value,
+                surfaceBright = surfaceBright.value,
+                surfaceDim = surfaceDim.value,
+                surfaceContainer = surfaceContainer.value,
+                surfaceContainerHigh = surfaceContainerHigh.value,
+                surfaceContainerHighest = surfaceContainerHighest.value,
+                surfaceContainerLow = surfaceContainerLow.value,
+                surfaceContainerLowest = surfaceContainerLowest.value,
+                primaryFixed = primaryFixed.value,
+                primaryFixedDim = primaryFixedDim.value,
+                onPrimaryFixed = onPrimaryFixed.value,
+                onPrimaryFixedVariant = onPrimaryFixedVariant.value,
+                secondaryFixed = secondaryFixed.value,
+                secondaryFixedDim = secondaryFixedDim.value,
+                onSecondaryFixed = onSecondaryFixed.value,
+                onSecondaryFixedVariant = onSecondaryFixedVariant.value,
+                tertiaryFixed = tertiaryFixed.value,
+                tertiaryFixedDim = tertiaryFixedDim.value,
+                onTertiaryFixed = onTertiaryFixed.value,
+                onTertiaryFixedVariant = onTertiaryFixedVariant.value
+            )
+        }
+    }
 }

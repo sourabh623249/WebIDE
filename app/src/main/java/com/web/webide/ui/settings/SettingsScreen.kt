@@ -97,11 +97,10 @@ fun SettingsScreen(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE) }
 
-    val editorPrefs = remember { context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE) }
     // 使用与 ViewModel 中加载自动保存设置一致的 SharedPreferences 文件名
     val generalPrefs = remember { context.getSharedPreferences("WebIDE_Settings", Context.MODE_PRIVATE) }
 
-    val fontSize = editorPrefs.getFloat("editor_font_size", 14f)
+    val fontSize = prefs.getFloat("editor_font_size", 14f)
 
     var tabWidth by remember { mutableIntStateOf(prefs.getInt("editor_tab_width", 4)) }
     var wordWrap by remember { mutableStateOf(prefs.getBoolean("editor_word_wrap", false)) }
@@ -166,7 +165,7 @@ fun SettingsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
+            item(key = "theme_settings") {
                 ThemeSettingsItem(
                     currentThemeState = currentThemeState,
                     onThemeChange = onThemeChange,
@@ -174,7 +173,7 @@ fun SettingsScreen(
                 )
             }
 
-            item {
+            item(key = "editor_settings") {
                 EditorSettingsItem(
                     tabWidth = tabWidth,
                     onTabWidthChange = { tabWidth = it },
@@ -656,7 +655,9 @@ fun ThemeSettingsItem(
                             Switch(
                                 checked = currentThemeState.isMonetEnabled,
                                 onCheckedChange = {
-                                    onThemeChange(currentThemeState.selectedModeIndex, currentThemeState.selectedThemeIndex, currentThemeState.customColor, it, currentThemeState.isCustomTheme)
+                                    // 互斥逻辑：启用 Monet 时，强制关闭 CustomTheme
+                                    val newIsCustom = if (it) false else currentThemeState.isCustomTheme
+                                    onThemeChange(currentThemeState.selectedModeIndex, currentThemeState.selectedThemeIndex, currentThemeState.customColor, it, newIsCustom)
                                 }
                             )
                         }

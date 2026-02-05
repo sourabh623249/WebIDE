@@ -26,10 +26,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.web.webide.core.utils.LogConfigRepository
 import com.web.webide.core.utils.LogConfigState
@@ -48,11 +48,11 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun App(
+    navController: NavHostController,
     themeViewModel: ThemeViewModel,
     logConfigRepository: LogConfigRepository,
     logConfigState: LogConfigState
 ) {
-    val navController = rememberNavController()
     val mainViewModel: EditorViewModel = viewModel()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
