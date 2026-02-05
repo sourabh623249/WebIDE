@@ -167,6 +167,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 
 dependencies {
+    implementation(libs.material.kolor)
     implementation(libs.jsoup)
     implementation(libs.coil.compose)
     implementation(project(":web-bridge"))
@@ -181,6 +182,7 @@ dependencies {
     implementation(libs.org.eclipse.jgit)
     // Source: https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit.ssh.apache
     implementation(libs.org.eclipse.jgit.ssh.apache)
+    //noinspection UseTomlInstead
     implementation("org.slf4j:slf4j-simple:2.0.17")
 
     // 🔥🔥🔥添加终端依赖
