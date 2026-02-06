@@ -58,6 +58,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,9 +80,17 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int FILE_CHOOSER_REQUEST_CODE = 101;
 
+    static {
+        System.loadLibrary("webapp_crypto");
+    }
+
+    private static native void initRandom();
+    private native byte[] decryptAsset(android.content.res.AssetManager manager, String filename);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        initRandom();
 
         // 0. 基础设置：防止键盘自动顶起
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
@@ -348,7 +357,35 @@ public class MainActivity extends Activity {
                 String path = url.getPath();
                 if (path == null || path.isEmpty() || "/".equals(path)) path = "index.html";
                 if (path.startsWith("/")) path = path.substring(1);
+                
+                // 尝试加载加密资源 (.bin)
                 try {
+                    // 检查是否存在对应的 .bin 文件
+                    // 由于 AssetManager 没法直接 check exist，我们尝试列出目录或者直接 open
+                    // 这里采用直接调用的方式，如果 decryptAsset 返回非空，说明成功
+                    
+                    // 注意：decryptAsset 在 Native 层会尝试读取 path + ".bin" 吗？
+                    // 不，Native 层直接读取传入的文件名。所以我们在 Java 层决定文件名。
+                    
+                    // 策略：先看有没有 path + ".bin"
+                    String binPath = path + ".bin";
+                    boolean hasEncrypted = false;
+                    try {
+                        InputStream is = getAssets().open(binPath);
+                        is.close();
+                        hasEncrypted = true;
+                    } catch (IOException ignored) {
+                        // 没有 .bin 文件
+                    }
+
+                    if (hasEncrypted) {
+                        byte[] data = decryptAsset(getAssets(), binPath);
+                        if (data != null) {
+                            return new WebResourceResponse(getMimeType(path), "UTF-8", new ByteArrayInputStream(data));
+                        }
+                    }
+                    
+                    // 回退到普通文件
                     InputStream stream = getAssets().open(path);
                     return new WebResourceResponse(getMimeType(path), "UTF-8", stream);
                 } catch (IOException e) {

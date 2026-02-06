@@ -69,6 +69,7 @@ public class ApkBuilder {
             String amph, // 图标路径 (CodeEditScreen 传入的 absolutePath)
             String[] ps,
             boolean isDebug, // 🔥 改动1：新增 isDebug 参数
+            boolean enableEncryption, // 🔥 新增：是否启用加密
 
             // 🔥 新增：自定义签名参数
             String customKeyPath,
@@ -119,7 +120,7 @@ public class ApkBuilder {
             // 3. 合并逻辑 (包含图标替换)
             LogCatcher.i("ApkBuilder", ">> 正在合并资源...");
             // 🔥 改动2：传入 context 和 isDebug
-            mergeApk(context, templateApk, rawZipFile, projectPath, config, isDebug);
+            mergeApk(context, templateApk, rawZipFile, projectPath, config, isDebug, enableEncryption);
 
             if (rawZipFile.length() < 1000) {
                 return "error: 构建失败，生成的包体过小";
@@ -196,7 +197,7 @@ public class ApkBuilder {
 
 
     // 🔥 改动3：增加 context 和 isDebug 参数
-    private static void mergeApk(Context context, File templateFile, File outputFile, String projectPath, AppConfig config, boolean isDebug) throws Exception {
+    private static void mergeApk(Context context, File templateFile, File outputFile, String projectPath, AppConfig config, boolean isDebug, boolean enableEncryption) throws Exception {
         ZipFile zipFile = new ZipFile(templateFile);
         ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outputFile));
         zos.setLevel(5);
@@ -264,7 +265,7 @@ public class ApkBuilder {
             File userAssetsDir = new File(projectPath, "src/main/assets");
             if (userAssetsDir.exists() && userAssetsDir.isDirectory()) {
                 // 🔥 改动5：传递 isDebug 参数
-                addProjectFilesRecursively(zos, userAssetsDir, "assets", isDebug);
+                addProjectFilesRecursively(zos, userAssetsDir, "assets", isDebug, enableEncryption);
             }
 
             // C. 将 webapp.json 配置文件打包到 assets 目录
@@ -387,35 +388,64 @@ public class ApkBuilder {
 
     // --- 🔥 改动6：修改递归方法以支持 HTML 注入，其他文件保持原样 ---
 
-    private static void addProjectFilesRecursively(ZipOutputStream zos, File file, String zipPath, boolean isDebug) {
+    private static void addProjectFilesRecursively(ZipOutputStream zos, File file, String zipPath, boolean isDebug, boolean enableEncryption) {
         if (file.isDirectory()) {
             File[] children = file.listFiles();
             if (children != null) {
                 for (File child : children) {
-                    addProjectFilesRecursively(zos, child, zipPath + "/" + child.getName(), isDebug);
+                    addProjectFilesRecursively(zos, child, zipPath + "/" + child.getName(), isDebug, enableEncryption);
                 }
             }
         } else {
             try {
-                ZipEntry newEntry = new ZipEntry(zipPath);
-                zos.putNextEntry(newEntry);
+                // Check if we should encrypt (Release mode + enabled + specific extensions)
+                boolean shouldEncrypt = !isDebug && enableEncryption && isEncryptable(file.getName());
 
-                // 🔥 只有在 (Debug模式) 且 (是HTML文件) 时，才拦截修改内容
-                if (isDebug && (file.getName().endsWith(".html") || file.getName().endsWith(".htm"))) {
-                    // 读取原文件 -> 插入代码 -> 写入Zip
-                    injectScriptToHtml(file, zos);
+                if (shouldEncrypt) {
+                    // Encrypt
+                    String entryName = zipPath + ".bin";
+                    ZipEntry newEntry = new ZipEntry(entryName);
+                    zos.putNextEntry(newEntry);
+
+                    byte[] fileBytes = readFileToBytes(file);
+                    byte[] encrypted = Encryptor.encrypt(fileBytes);
+                    zos.write(encrypted);
+                    zos.closeEntry();
                 } else {
-                    // ⚠️ 这是你原本的逻辑，绝对保留，保证 css/js/img 不会丢失
-                    try (FileInputStream fis = new FileInputStream(file)) {
-                        copyStream(fis, zos);
-                    }
-                }
+                    ZipEntry newEntry = new ZipEntry(zipPath);
+                    zos.putNextEntry(newEntry);
 
-                zos.closeEntry();
+                    // 🔥 只有在 (Debug模式) 且 (是HTML文件) 时，才拦截修改内容
+                    if (isDebug && (file.getName().endsWith(".html") || file.getName().endsWith(".htm"))) {
+                        // 读取原文件 -> 插入代码 -> 写入Zip
+                        injectScriptToHtml(file, zos);
+                    } else {
+                        // ⚠️ 这是你原本的逻辑，绝对保留，保证 css/js/img 不会丢失
+                        try (FileInputStream fis = new FileInputStream(file)) {
+                            copyStream(fis, zos);
+                        }
+                    }
+
+                    zos.closeEntry();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    private static boolean isEncryptable(String name) {
+        String lower = name.toLowerCase();
+        return lower.endsWith(".html") || lower.endsWith(".htm") ||
+                lower.endsWith(".js") || lower.endsWith(".css");
+    }
+
+    private static byte[] readFileToBytes(File file) throws IOException {
+        byte[] bytes = new byte[(int) file.length()];
+        try (FileInputStream fis = new FileInputStream(file)) {
+            fis.read(bytes);
+        }
+        return bytes;
     }
 
     // 🔥 改动7：新增 HTML 注入辅助方法
