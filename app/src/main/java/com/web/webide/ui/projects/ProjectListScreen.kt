@@ -21,11 +21,16 @@ package com.web.webide.ui.projects
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -240,92 +245,103 @@ fun ProjectListScreen(navController: NavController) {
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            // 根据状态切换 TopBar
-            if (isSearchActive) {
-                // --- 搜索模式 TopBar ---
-                TopAppBar(
-                    title = {
-                        TextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("搜索项目...", style = MaterialTheme.typography.bodyLarge) },
-                            singleLine = true,
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            textStyle = MaterialTheme.typography.bodyLarge,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = {
-                                saveSearchHistory(searchQuery)
-                                focusManager.clearFocus()
-                            }),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            isSearchActive = false
-                            searchQuery = ""
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "退出搜索")
-                        }
-                    },
-                    actions = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, "清除")
-                            }
-                        }
+            AnimatedContent(
+                targetState = isSearchActive,
+                transitionSpec = {
+                    if (targetState) {
+                        (fadeIn(tween(300)) + slideInVertically(tween(300)) { -it }).togetherWith(fadeOut(tween(300)))
+                    } else {
+                        fadeIn(tween(300)).togetherWith(fadeOut(tween(300)) + slideOutVertically(tween(300)) { -it })
                     }
-                )
-            } else {
-                // --- 常规模式 TopBar ---
-                LargeTopAppBar(
-                    title = { Text("Web Projects") },
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        // 搜索按钮
-                        IconButton(onClick = { isSearchActive = true }) {
-                            Icon(Icons.Default.Search, "搜索")
-                        }
-                        // 排序按钮
-                        Box {
-                            IconButton(onClick = { showSortMenu = true }) {
-                                Icon(Icons.AutoMirrored.Filled.Sort, "排序")
+                },
+                label = "TopBarAnimation"
+            ) { active ->
+                if (active) {
+                    // --- 搜索模式 TopBar ---
+                    TopAppBar(
+                        title = {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("搜索项目...", style = MaterialTheme.typography.bodyLarge) },
+                                singleLine = true,
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                textStyle = MaterialTheme.typography.bodyLarge,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = {
+                                    saveSearchHistory(searchQuery)
+                                    focusManager.clearFocus()
+                                }),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                isSearchActive = false
+                                searchQuery = ""
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "退出搜索")
                             }
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false }
-                            ) {
-                                SortOrder.entries.forEach { order ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (order == currentSortOrder) {
-                                                    Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
-                                                    Spacer(Modifier.width(8.dp))
-                                                } else {
-                                                    Spacer(Modifier.width(24.dp))
-                                                }
-                                                Text(order.displayName)
-                                            }
-                                        },
-                                        onClick = {
-                                            changeSortOrder(order)
-                                            showSortMenu = false
-                                        }
-                                    )
+                        },
+                        actions = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, "清除")
                                 }
                             }
                         }
-                        IconButton(onClick = { navController.safeNavigate("settings") }) {
-                            Icon(Icons.Default.Settings, "设置")
+                    )
+                } else {
+                    // --- 常规模式 TopBar ---
+                    LargeTopAppBar(
+                        title = { Text("Web Projects") },
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            // 搜索按钮
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(Icons.Default.Search, "搜索")
+                            }
+                            // 排序按钮
+                            Box {
+                                IconButton(onClick = { showSortMenu = true }) {
+                                    Icon(Icons.AutoMirrored.Filled.Sort, "排序")
+                                }
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    SortOrder.entries.forEach { order ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    if (order == currentSortOrder) {
+                                                        Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+                                                        Spacer(Modifier.width(8.dp))
+                                                    } else {
+                                                        Spacer(Modifier.width(24.dp))
+                                                    }
+                                                    Text(order.displayName)
+                                                }
+                                            },
+                                            onClick = {
+                                                changeSortOrder(order)
+                                                showSortMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            IconButton(onClick = { navController.safeNavigate("settings") }) {
+                                Icon(Icons.Default.Settings, "设置")
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         },
         floatingActionButton = {
@@ -345,9 +361,14 @@ fun ProjectListScreen(navController: NavController) {
         }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-
-            // --- 场景 1：搜索模式且无输入 -> 显示历史记录 ---
-            if (isSearchActive && searchQuery.isEmpty()) {
+            val showHistory = isSearchActive && searchQuery.isEmpty()
+            AnimatedContent(
+                targetState = showHistory,
+                transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(300))) },
+                label = "ContentAnim"
+            ) { isHistory ->
+                // --- 场景 1：搜索模式且无输入 -> 显示历史记录 ---
+                if (isHistory) {
                 if (searchHistory.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("暂无搜索记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -461,6 +482,7 @@ fun ProjectListScreen(navController: NavController) {
                         }
                     }
                 }
+            }
             }
         }
 
