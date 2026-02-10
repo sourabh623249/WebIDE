@@ -76,6 +76,8 @@ import io.github.rosemoe.sora.lsp.client.languageserver.serverdefinition.CustomL
 import com.web.webide.lsp.ProotStreamConnectionProvider
 import org.eclipse.lsp4j.Diagnostic
 
+import com.web.webide.ui.editor.components.MediaType
+
 // ================== 核心数据结构 ==================
 
 interface IEditorTab {
@@ -97,6 +99,14 @@ class DiffEditorState(
     var viewMode by mutableStateOf(DiffViewMode.SPLIT)
 
     var activeDiffEditor: CodeEditor? = null
+}
+
+data class MediaEditorState(
+    override val file: File,
+    val mediaType: MediaType
+) : IEditorTab {
+    override val uniqueId: String = file.absolutePath
+    override val title: String = file.name
 }
 
 data class CodeEditorState(
@@ -474,19 +484,35 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun openFile(file: File) {
         if (file.isDirectory || !file.exists()) return
         viewModelScope.launch {
+            // Check if file is already open
             val existingIndex = openFiles.indexOfFirst {
-                it is CodeEditorState && it.file.absolutePath == file.absolutePath
+                (it is CodeEditorState && it.file.absolutePath == file.absolutePath) ||
+                (it is MediaEditorState && it.file.absolutePath == file.absolutePath)
             }
             if (existingIndex != -1) {
                 activeFileIndex = existingIndex
             } else {
-                val content = withContext(Dispatchers.IO) {
-                    try { file.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
+                val extension = file.extension.lowercase()
+                val mediaType = when (extension) {
+                    "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico" -> MediaType.IMAGE
+                    "svg" -> MediaType.SVG
+                    "mp4", "mkv", "webm", "avi", "3gp" -> MediaType.VIDEO
+                    else -> null
                 }
-                val newState = CodeEditorState(file = file)
-                newState.onContentLoaded(content)
-                openFiles = openFiles + newState
-                activeFileIndex = openFiles.lastIndex
+
+                if (mediaType != null) {
+                    val newState = MediaEditorState(file = file, mediaType = mediaType)
+                    openFiles = openFiles + newState
+                    activeFileIndex = openFiles.lastIndex
+                } else {
+                    val content = withContext(Dispatchers.IO) {
+                        try { file.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
+                    }
+                    val newState = CodeEditorState(file = file)
+                    newState.onContentLoaded(content)
+                    openFiles = openFiles + newState
+                    activeFileIndex = openFiles.lastIndex
+                }
             }
         }
     }
