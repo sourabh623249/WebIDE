@@ -1,6 +1,8 @@
 
 
 
+
+
 /*
  * WebIDE - A powerful IDE for Android web development.
  * Copyright (C) 2025  如日中天  <3382198490@qq.com>
@@ -69,6 +71,7 @@ import java.util.Date
 import java.util.Locale
 import com.web.webide.ui.editor.viewmodel.CodeEditorState
 import com.web.webide.ui.editor.viewmodel.EditorViewModel
+import com.web.webide.ui.editor.viewmodel.MediaEditorState
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
 
@@ -88,7 +91,10 @@ fun EditorPanelLayout(
     peekHeight: Dp = 86.dp,
     content: @Composable () -> Unit
 ) {
-    val hasActiveEditor = viewModel.openFiles.isNotEmpty()
+    val activeTab = viewModel.openFiles.getOrNull(viewModel.activeFileIndex)
+    val isMedia = activeTab is MediaEditorState
+    val hasActiveEditor = viewModel.openFiles.isNotEmpty() && !isMedia
+    
     val density = LocalDensity.current
     val minPeekHeightDp = if (hasActiveEditor) peekHeight else 50.dp
     val animatedMinPeekHeight by animateDpAsState(targetValue = minPeekHeightDp, animationSpec = tween(durationMillis = 300), label = "MinPeekHeight")
