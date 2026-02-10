@@ -170,6 +170,7 @@ dependencies {
     implementation(libs.material.kolor)
     implementation(libs.jsoup)
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
     implementation(project(":web-bridge"))
     implementation(libs.accompanist.navigation.animation)
 
@@ -197,6 +198,11 @@ dependencies {
     //TreeSitter语言包
     implementation(libs.tree.sitter)
     implementation(libs.tree.sitter.json)
+
+    // Media3 (Video Player)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.common)
 
     // Editor
     implementation(project(":editor"))

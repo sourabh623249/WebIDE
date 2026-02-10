@@ -4,6 +4,7 @@ accompanistNavigationAnimation = "0.36.0"
 agp = "8.13.2"
 bsh = "2.0b6"
 coilCompose = "2.7.0"
+coilSvg = "2.7.0"
 datastoreCore = "1.2.0"
 desugar_jdk_libs = "2.1.5"
 editorVersion = "0.24.4"
@@ -47,6 +48,7 @@ navigation = "2.9.7"
 utilcode = "1.31.1"
 anrwatchdog = "1.4.0"
 palette = "1.0.0"
+media3 = "1.5.1"
 accompanist = "0.36.0"
 materialIcons = "1.7.8"
 foundationLayout = "1.10.2"
@@ -64,6 +66,7 @@ androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 bsh = { module = "org.apache-extras.beanshell:bsh", version.ref = "bsh" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
+coil-svg = { module = "io.coil-kt:coil-svg", version.ref = "coilSvg" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -96,6 +99,9 @@ tree-sitter-json = { module = "com.itsaky.androidide.treesitter:tree-sitter-json
 zipalign-java = { module = "com.github.iyxan23:zipalign-java", version.ref = "zipalignJava" }
 volley = { group = "com.android.volley", name = "volley", version.ref = "volley" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
