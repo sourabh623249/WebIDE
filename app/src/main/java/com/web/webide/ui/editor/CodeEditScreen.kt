@@ -551,7 +551,12 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         .fillMaxSize()
                         .imePadding()) {
                         val availableEditorHeight = maxHeight // 这就是 EditorPanelLayout 可以用的全部高度
-                        val currentSymbols = if (hasOpenFiles) editorConfig.getSymbolList() else emptyList()
+                        
+                        // 🔥 修改：在代码编辑器和Diff模式下显示符号栏，仅在媒体查看器或无文件时隐藏
+                        val activeTab = viewModel.openFiles.getOrNull(viewModel.activeFileIndex)
+                        val shouldShowSymbols = activeTab is com.web.webide.ui.editor.viewmodel.CodeEditorState || 
+                                              activeTab is com.web.webide.ui.editor.viewmodel.DiffEditorState
+                        val currentSymbols = if (hasOpenFiles && shouldShowSymbols) editorConfig.getSymbolList() else emptyList()
 
                         EditorPanelLayout(
                             viewModel = viewModel,
@@ -566,6 +571,16 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                         strokeCap = StrokeCap.Butt
                                     )
                                 }
+                                // The content here is just a placeholder because EditorPanelLayout handles the content structure.
+                                // But wait, EditorPanelLayout expects `content` to be the main editor area.
+                                // However, we have a HorizontalPager below that switches tabs.
+                                // The structure seems to be: 
+                                // CodeEditScreen -> Scaffold -> EditorPanelLayout -> Content (Main Area)
+                                
+                                // If we are here, it means we are in the single-pane mode (maybe?) or this is the common area.
+                                // Actually, `CodeEditScreen` uses `EditCode` which contains the `HorizontalPager`.
+                                // Let's look at `EditCode`.
+                                
                                 EditCode(
                                     modifier = Modifier.fillMaxSize(),
                                     viewModel = viewModel,
@@ -818,6 +833,12 @@ fun EditCode(
 
                     // 🔥🔥 根据类型渲染组件 🔥🔥
                     when (tab) {
+                        is com.web.webide.ui.editor.viewmodel.MediaEditorState -> {
+                             com.web.webide.ui.editor.components.MediaViewer(
+                                 file = tab.file,
+                                 type = tab.mediaType
+                             )
+                        }
                         is com.web.webide.ui.editor.viewmodel.CodeEditorState -> {
                             com.web.webide.ui.editor.components.CodeEditorView(
                                 modifier = Modifier.fillMaxSize(),
