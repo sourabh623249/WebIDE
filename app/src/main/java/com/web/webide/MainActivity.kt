@@ -20,7 +20,7 @@
 package com.web.webide
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -46,7 +46,7 @@ import com.web.webide.ui.editor.components.TextMateInitializer
 import com.web.webide.ui.theme.MyComposeApplicationTheme
 import com.web.webide.ui.welcome.WelcomeScreen
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
