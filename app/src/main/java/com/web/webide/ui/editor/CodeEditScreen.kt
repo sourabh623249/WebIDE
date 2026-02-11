@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,6 +82,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 // 构建结果状态
 sealed class BuildResultState {
@@ -596,6 +599,10 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                             }
                         }
                         
+                        // 配置文件可视化入口
+                        // Removed duplicate button from here
+
+                        
                         if (isAiEnabled) {
                             AICodingPanel()
                         }
@@ -822,52 +829,70 @@ fun EditCode(
             }
             HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                userScrollEnabled = false,
-                key = { index -> if (index < openFiles.size) openFiles[index].uniqueId else "empty_$index" }
-            ) { page ->
-                if (page in openFiles.indices) {
-                    val tab = openFiles[page]
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = false,
+                    key = { index -> if (index < openFiles.size) openFiles[index].uniqueId else "empty_$index" }
+                ) { page ->
+                    if (page in openFiles.indices) {
+                        val tab = openFiles[page]
 
-                    // 🔥🔥 根据类型渲染组件 🔥🔥
-                    when (tab) {
-                        is com.web.webide.ui.editor.viewmodel.MediaEditorState -> {
-                             com.web.webide.ui.editor.components.MediaViewer(
-                                 file = tab.file,
-                                 type = tab.mediaType
-                             )
+                        // 🔥🔥 根据类型渲染组件 🔥🔥
+                        when (tab) {
+                            is com.web.webide.ui.editor.viewmodel.MediaEditorState -> {
+                                com.web.webide.ui.editor.components.MediaViewer(
+                                    file = tab.file,
+                                    type = tab.mediaType
+                                )
+                            }
+                            is com.web.webide.ui.editor.viewmodel.CodeEditorState -> {
+                                com.web.webide.ui.editor.components.CodeEditorView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    state = tab,
+                                    viewModel = viewModel,
+                                    onShowSearch = onShowSearch,
+                                    onRun = {
+                                        scope.launch {
+                                            viewModel.saveAllModifiedFiles(snackbarHostState)
+                                            navController.safeNavigate("preview/$folderName")
+                                        }
+                                    },
+                                    onNavigateToTerminal = onNavigateToTerminal,
+                                    onShowJumpLine = onShowJumpLine,
+                                    onShowCreate = onShowCreate,
+                                    onShowColorPicker = onShowColorPicker
+                                )
+                            }
+                            is com.web.webide.ui.editor.viewmodel.DiffEditorState -> {
+                                com.web.webide.ui.editor.components.DiffViewer(
+                                    viewModel = viewModel,
+                                    state = tab,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
-                        is com.web.webide.ui.editor.viewmodel.CodeEditorState -> {
-                            com.web.webide.ui.editor.components.CodeEditorView(
-                                modifier = Modifier.fillMaxSize(),
-                                state = tab,
-                                viewModel = viewModel,
-                                onShowSearch = onShowSearch,
-                                onRun = {
-                                    scope.launch {
-                                        viewModel.saveAllModifiedFiles(snackbarHostState)
-                                        navController.safeNavigate("preview/$folderName")
-                                    }
-                                },
-                                onNavigateToTerminal = onNavigateToTerminal,
-                                onShowJumpLine = onShowJumpLine,
-                                onShowCreate = onShowCreate,
-                                onShowColorPicker = onShowColorPicker
-                            )
-                        }
-                        is com.web.webide.ui.editor.viewmodel.DiffEditorState -> {
-                            com.web.webide.ui.editor.components.DiffViewer(
-                                viewModel = viewModel,
-                                state = tab,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
                         }
                     }
-                } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                }
+
+                val activeTab = openFiles.getOrNull(pagerState.currentPage)
+                if (activeTab?.file?.name == "webapp.json") {
+                    FilledIconButton(
+                        onClick = {
+                            val encodedPath = URLEncoder.encode(activeTab.file.absolutePath, StandardCharsets.UTF_8.toString())
+                            navController.navigate("project_config/$encodedPath")
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 16.dp, end = 16.dp)
+                            .size(35.dp)
+                    ) {
+                        Icon(Icons.Outlined.Settings, "可视化配置", modifier = Modifier.size(20.dp))
                     }
                 }
             }
