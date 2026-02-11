@@ -47,6 +47,8 @@ import com.web.webide.ui.settings.SettingsScreen
 import com.web.webide.ui.terminal.TerminalScreen
 import kotlinx.coroutines.launch
 
+import com.web.webide.ui.welcome.WelcomeScreen
+
 @Composable
 fun App(
     navController: NavHostController,
@@ -179,16 +181,25 @@ fun App(
 
         composable("settings") {
             SettingsScreen(
-                navController,
-                themeState,
-                logConfigState,
-                onThemeChange = { mode, theme, color, isMonet, isCustom ->
-                    themeViewModel.saveThemeConfig(mode, theme, color, isMonet, isCustom)
+                navController = navController,
+                currentThemeState = themeState,
+                logConfigState = logConfigState,
+                onThemeChange = { modeIndex, themeIndex, customColor, isMonet, isCustom ->
+                    themeViewModel.saveThemeConfig(modeIndex, themeIndex, customColor, isMonet, isCustom)
                 },
-                onLogConfigChange = { enabled, filePath ->
-                    scope.launch { logConfigRepository.saveLogConfig(enabled, filePath) }
+                onLogConfigChange = { enabled, path ->
+                    scope.launch { logConfigRepository.saveLogConfig(enabled, path) }
                 },
                 editorViewModel = mainViewModel
+            )
+        }
+        
+        composable("welcome") {
+            WelcomeScreen(
+                themeViewModel = themeViewModel,
+                onWelcomeFinished = {
+                    navController.popBackStack()
+                }
             )
         }
 
