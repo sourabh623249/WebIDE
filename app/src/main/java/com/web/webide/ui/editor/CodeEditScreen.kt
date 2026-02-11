@@ -415,6 +415,13 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                                 navController.navigate("terminal")
                                             }
                                         )
+                                        DropdownMenuItem(
+                                            text = { Text("JS 接口文档") },
+                                            onClick = {
+                                                isMoreMenuExpanded = false
+                                                navController.safeNavigate("js_interface_doc")
+                                            }
+                                        )
 
                                         // 只有文件存在且路径属于当前项目(可选逻辑)时才显示
                                         if (viewModel.lastBuiltApk != null && viewModel.lastBuiltApk!!.exists()) {
