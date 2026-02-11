@@ -233,6 +233,15 @@ fun SettingsScreen(
 
             item {
                 SimpleSettingsCard(
+                    icon = Icons.Outlined.WavingHand,
+                    title = "欢迎页",
+                    subtitle = "查看功能介绍",
+                    onClick = { navController.safeNavigate("welcome") }
+                )
+            }
+
+            item {
+                SimpleSettingsCard(
                     icon = Icons.Outlined.Info,
                     title = "关于",
                     subtitle = "版本信息与介绍",
