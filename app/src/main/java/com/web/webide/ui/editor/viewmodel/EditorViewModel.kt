@@ -754,7 +754,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 val lastColumnIndex = text.getColumnCount(lastLineIndex)
                 
                 // If the file is empty, just insert
-                if (text.length == 0) {
+                if (text.isEmpty()) {
                     text.insert(0, 0, newContent)
                 } else {
                     text.replace(0, 0, lastLineIndex, lastColumnIndex, newContent)
