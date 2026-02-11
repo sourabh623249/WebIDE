@@ -34,8 +34,8 @@ android {
         applicationId = "com.web.webide"
         minSdk = 29
         targetSdk = 36
-        versionCode = 26
-        versionName = "0.2.6"
+        versionCode = 27
+        versionName = "0.2.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             //noinspection ChromeOsAbiSupport
@@ -175,6 +175,10 @@ dependencies {
 
     implementation(libs.aboutlibraries.compose)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.multiplatform.markdown.renderer.m3)
+    implementation(libs.multiplatform.markdown.renderer.code)
+    implementation(libs.multiplatform.markdown.renderer.coil2)
+    implementation(libs.highlights)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.ui)
     // git依赖
