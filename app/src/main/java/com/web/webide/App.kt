@@ -39,6 +39,7 @@ import com.web.webide.ui.editor.CodeEditScreen
 import com.web.webide.ui.editor.viewmodel.EditorViewModel
 import com.web.webide.ui.preview.WebPreviewScreen
 import com.web.webide.ui.projects.NewProjectScreen
+import com.web.webide.ui.projects.ProjectConfigScreen
 import com.web.webide.ui.projects.ProjectListScreen
 import com.web.webide.ui.projects.WorkspaceSelectionScreen
 import com.web.webide.ui.settings.AboutScreen
@@ -164,6 +165,16 @@ fun App(
 
         composable("new_project") {
             NewProjectScreen(navController = navController)
+        }
+
+        composable(
+            route = "project_config/{filePath}",
+            arguments = listOf(navArgument("filePath") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val filePath = backStackEntry.arguments?.getString("filePath")
+            if (filePath != null) {
+                ProjectConfigScreen(navController, filePath, mainViewModel)
+            }
         }
 
         composable("settings") {
