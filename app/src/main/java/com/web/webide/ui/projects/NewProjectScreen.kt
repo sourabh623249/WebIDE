@@ -152,7 +152,7 @@ fun NewProjectScreen(navController: NavController) {
             val finalUrl = if (selectedType == ProjectType.WEBSITE) targetUrl else "index.html"
             root.put("targetUrl", finalUrl)
 
-            if (iconPath.isNotBlank()) root.put("icon", "icon.png")
+            root.put("icon", "icon.png")
 
             // 显示
             root.put("orientation", orientation)
