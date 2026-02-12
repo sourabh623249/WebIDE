@@ -139,6 +139,7 @@ data class EditorConfig(
     val showInvisibles: Boolean = false,
     val codeFolding: Boolean = true,
     val showToolbar: Boolean = true,
+    val showHistory: Boolean = true,
     val fontPath: String = "",
     val customSymbols: String = "Tab,<,>,/,=,\",',!,?,;,:,{,},[,],(,),+,-,*,_,&,|"
 ) {
@@ -666,6 +667,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             showInvisibles = prefs.getBoolean("editor_show_invisibles", false),
             codeFolding = prefs.getBoolean("editor_code_folding", true),
             showToolbar = prefs.getBoolean("editor_show_toolbar", true),
+            showHistory = prefs.getBoolean("editor_show_history", true),
             fontPath = prefs.getString("editor_font_path", "") ?: "",
             customSymbols = prefs.getString("editor_custom_symbols", "Tab,<,>,/,=,\",',!,?,;,:,{,},[,],(,),+,-,*,_,&,|") ?: ""
         )
