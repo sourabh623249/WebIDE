@@ -107,6 +107,7 @@ fun SettingsScreen(
     var showInvisibles by remember { mutableStateOf(prefs.getBoolean("editor_show_invisibles", false)) }
     var codeFolding by remember { mutableStateOf(prefs.getBoolean("editor_code_folding", true)) }
     var showToolbar by remember { mutableStateOf(prefs.getBoolean("editor_show_toolbar", true)) }
+    var showHistory by remember { mutableStateOf(prefs.getBoolean("editor_show_history", true)) }
     var lspEnabled by remember { mutableStateOf(prefs.getBoolean("editor_lsp_enabled", false)) }
     var aiEnabled by remember { mutableStateOf(prefs.getBoolean("editor_ai_enabled", true)) }
     var fontPath by remember { mutableStateOf(prefs.getString("editor_font_path", "") ?: "") }
@@ -117,7 +118,7 @@ fun SettingsScreen(
     var previousLspEnabled by remember { mutableStateOf(lspEnabled) }
 
     // 自动保存
-    LaunchedEffect(tabWidth, wordWrap, showInvisibles, codeFolding, showToolbar, lspEnabled, aiEnabled, fontPath, customSymbols) {
+    LaunchedEffect(tabWidth, wordWrap, showInvisibles, codeFolding, showToolbar, showHistory, lspEnabled, aiEnabled, fontPath, customSymbols) {
         prefs.edit {
             putFloat("editor_font_size", fontSize)
             putInt("editor_tab_width", tabWidth)
@@ -125,6 +126,7 @@ fun SettingsScreen(
             putBoolean("editor_show_invisibles", showInvisibles)
             putBoolean("editor_code_folding", codeFolding)
             putBoolean("editor_show_toolbar", showToolbar)
+            putBoolean("editor_show_history", showHistory)
             putBoolean("editor_lsp_enabled", lspEnabled)
             putBoolean("editor_ai_enabled", aiEnabled)
             putString("editor_font_path", fontPath)
@@ -185,6 +187,8 @@ fun SettingsScreen(
                     onCodeFoldingChange = { codeFolding = it },
                     showToolbar = showToolbar,
                     onShowToolbarChange = { showToolbar = it },
+                    showHistory = showHistory,
+                    onShowHistoryChange = { showHistory = it },
                     lspEnabled = lspEnabled,
                     onLspEnabledChange = { lspEnabled = it },
                     isAiEnabled = aiEnabled,
@@ -350,6 +354,8 @@ fun EditorSettingsItem(
     onCodeFoldingChange: (Boolean) -> Unit,
     showToolbar: Boolean,
     onShowToolbarChange: (Boolean) -> Unit,
+    showHistory: Boolean,
+    onShowHistoryChange: (Boolean) -> Unit,
     lspEnabled: Boolean,
     onLspEnabledChange: (Boolean) -> Unit,
     isAiEnabled: Boolean,
@@ -533,6 +539,7 @@ fun EditorSettingsItem(
                     // === 3. 行为开关 ===
                     Text("行为", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     CompactSwitchRow("显示工具栏", showToolbar, onShowToolbarChange)
+                    CompactSwitchRow("历史标签页", showHistory, onShowHistoryChange)
                     CompactSwitchRow("自动换行", wordWrap, onWordWrapChange)
                     CompactSwitchRow("显示空白符", showInvisibles, onShowInvisiblesChange)
                     CompactSwitchRow("代码折叠", codeFolding, onCodeFoldingChange)
