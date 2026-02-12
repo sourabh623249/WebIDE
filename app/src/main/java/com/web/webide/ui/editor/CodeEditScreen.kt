@@ -28,12 +28,16 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
@@ -42,12 +46,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import com.web.webide.files.FileTreeConfig
+import com.web.webide.files.SortBy
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -84,13 +91,14 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import androidx.core.content.edit
 
 // 构建结果状态
 sealed class BuildResultState {
     data class Finished(val message: String, val apkPath: String? = null) : BuildResultState()
 }
 
-@SuppressLint("ConfigurationScreenWidthHeight")
+@SuppressLint("ConfigurationScreenWidthHeight", "UseKtx")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CodeEditScreen(folderName: String, navController: NavController, viewModel: EditorViewModel) {
@@ -99,7 +107,8 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     val context = LocalContext.current
     var isMoreMenuExpanded by remember { mutableStateOf(false) }
     val workspacePath = WorkspaceManager.getWorkspacePath(context)
-    val projectPath = File(workspacePath, folderName).absolutePath
+    var projectPath by remember { mutableStateOf(File(workspacePath, folderName).absolutePath) }
+    val currentFolderName = remember(projectPath) { File(projectPath).name }
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
     val gitViewModel: GitViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
@@ -197,6 +206,26 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
         configFile.exists() && assetsDir.exists() && assetsDir.isDirectory
     }
 
+    // FileTree Config (Hoisted to persist across drawer toggles)
+    val prefs = remember { context.getSharedPreferences("FileTreeSettings", Context.MODE_PRIVATE) }
+    var fileTreeConfig by remember {
+        mutableStateOf(
+            FileTreeConfig(
+                sortBy = try {
+                    SortBy.valueOf(prefs.getString("sortBy", SortBy.NAME.name) ?: SortBy.NAME.name)
+                } catch (_: Exception) {
+                    SortBy.NAME
+                },
+                foldersAlwaysOnTop = prefs.getBoolean("foldersAlwaysOnTop", true),
+                showDetails = prefs.getBoolean("showDetails", false), // User requested default: false
+                compactMiddlePackages = prefs.getBoolean("compactMiddlePackages", false),
+                compactMiddlePackageCount = prefs.getInt("compactMiddlePackageCount", 3),
+                alwaysSelectOpenedFile = prefs.getBoolean("alwaysSelectOpenedFile", false), // User requested default: false
+                showIndentGuides = prefs.getBoolean("showIndentGuides", false) // User requested default: false
+            )
+        )
+    }
+
     var isOpenSearch by remember { mutableStateOf(false) }
     var currentSearchText by remember { mutableStateOf("") }
     LaunchedEffect(viewModel.activeFileIndex) {
@@ -216,7 +245,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(folderName) {
+    LaunchedEffect(currentFolderName) {
         if (viewModel.openFiles.isNotEmpty()) {
             val firstFile = viewModel.openFiles.first().file
             if (!firstFile.absolutePath.startsWith(projectPath)) {
@@ -310,6 +339,35 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                 // 原有的文件管理器
                                 FileManagerDrawer(
                                     projectPath = projectPath,
+                                    activeFile = viewModel.openFiles.getOrNull(viewModel.activeFileIndex)?.file,
+                                    fileTreeConfig = fileTreeConfig,
+                                    onConfigChange = { newConfig ->
+                                        fileTreeConfig = newConfig
+                                        prefs.edit {
+                                            putString("sortBy", newConfig.sortBy.name)
+                                                .putBoolean(
+                                                    "foldersAlwaysOnTop",
+                                                    newConfig.foldersAlwaysOnTop
+                                                )
+                                                .putBoolean("showDetails", newConfig.showDetails)
+                                                .putBoolean(
+                                                    "compactMiddlePackages",
+                                                    newConfig.compactMiddlePackages
+                                                )
+                                                .putInt(
+                                                    "compactMiddlePackageCount",
+                                                    newConfig.compactMiddlePackageCount
+                                                )
+                                                .putBoolean(
+                                                    "alwaysSelectOpenedFile",
+                                                    newConfig.alwaysSelectOpenedFile
+                                                )
+                                                .putBoolean(
+                                                    "showIndentGuides",
+                                                    newConfig.showIndentGuides
+                                                )
+                                        }
+                                    },
                                     onFileClick = { file ->
                                         viewModel.openFile(file)
                                         scope.launch { drawerState.close() }
@@ -345,7 +403,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                 Column {
                                     Text("WebIDE", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
-                                        text = folderName,
+                                        text = currentFolderName,
                                         style = MaterialTheme.typography.bodyMedium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -991,15 +1049,313 @@ fun EditCode(
 }
 
 @Composable
-fun FileManagerDrawer(projectPath: String, onFileClick: (File) -> Unit,onFileRenamed: (File, File) -> Unit ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            "文件树",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(16.dp)
+fun FileManagerDrawer(
+    projectPath: String,
+    activeFile: File? = null,
+    fileTreeConfig: FileTreeConfig,
+    onConfigChange: (FileTreeConfig) -> Unit,
+    onFileClick: (File) -> Unit,
+    onFileRenamed: (File, File) -> Unit
+) {
+    var showSettingsMenu by remember { mutableStateOf(false) }
+    var locateTrigger by remember { mutableLongStateOf(0L) }
+    var collapseTrigger by remember { mutableLongStateOf(0L) }
+    var expandTrigger by remember { mutableLongStateOf(0L) }
+    var refreshTrigger by remember { mutableLongStateOf(0L) }
+    var showCreateMenu by remember { mutableStateOf(false) }
+    var showNewFolderDialog by remember { mutableStateOf(false) }
+    var showNewFileDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    if (showCreateMenu) {
+        AlertDialog(
+            onDismissRequest = { showCreateMenu = false },
+            title = { Text("新建") },
+            text = {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showCreateMenu = false
+                                showNewFileDialog = true
+                            }
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.InsertDriveFile, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(16.dp))
+                        Text("文件")
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showCreateMenu = false
+                                showNewFolderDialog = true
+                            }
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Filled.Folder, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(16.dp))
+                        Text("文件夹")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showCreateMenu = false }) { Text("取消") }
+            }
         )
+    }
+
+    if (showNewFileDialog) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showNewFileDialog = false },
+            title = { Text("新建文件") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("文件名") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (name.isNotBlank()) {
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val parent = if (activeFile != null) activeFile.parentFile else File(projectPath)
+                                val target = if (parent != null && parent.exists()) parent else File(projectPath)
+                                val newFile = File(target, name)
+                                if (!newFile.exists()) {
+                                    newFile.createNewFile()
+                                    withContext(Dispatchers.Main) {
+                                        refreshTrigger = System.currentTimeMillis()
+                                        onFileClick(newFile) // Open created file
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        showNewFileDialog = false
+                    }
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewFileDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    if (showNewFolderDialog) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showNewFolderDialog = false },
+            title = { Text("新建文件夹") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("文件夹名") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (name.isNotBlank()) {
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val parent = if (activeFile != null) activeFile.parentFile else File(projectPath)
+                                val target = if (parent != null && parent.exists()) parent else File(projectPath)
+                                val newFile = File(target, name)
+                                if (!newFile.exists()) {
+                                    newFile.mkdirs()
+                                    withContext(Dispatchers.Main) {
+                                        refreshTrigger = System.currentTimeMillis()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        showNewFolderDialog = false
+                    }
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewFolderDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    if (showSettingsMenu) {
+        AlertDialog(
+            onDismissRequest = { showSettingsMenu = false },
+            title = { Text("文件树设置") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("排序方式", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(sortBy = SortBy.NAME)) }.padding(vertical = 8.dp)) {
+                        RadioButton(selected = fileTreeConfig.sortBy == SortBy.NAME, onClick = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("按名称排序")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(sortBy = SortBy.TYPE)) }.padding(vertical = 8.dp)) {
+                        RadioButton(selected = fileTreeConfig.sortBy == SortBy.TYPE, onClick = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("按类型排序")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(sortBy = SortBy.DATE_NEWEST)) }.padding(vertical = 8.dp)) {
+                        RadioButton(selected = fileTreeConfig.sortBy == SortBy.DATE_NEWEST, onClick = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("按时间排序 (最新)")
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Text("外观", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(foldersAlwaysOnTop = !fileTreeConfig.foldersAlwaysOnTop)) }.padding(vertical = 8.dp)) {
+                        Checkbox(checked = fileTreeConfig.foldersAlwaysOnTop, onCheckedChange = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("文件夹置顶")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(showDetails = !fileTreeConfig.showDetails)) }.padding(vertical = 8.dp)) {
+                        Checkbox(checked = fileTreeConfig.showDetails, onCheckedChange = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("显示详细信息")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(compactMiddlePackages = !fileTreeConfig.compactMiddlePackages)) }.padding(vertical = 8.dp)) {
+                        Checkbox(checked = fileTreeConfig.compactMiddlePackages, onCheckedChange = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("压缩空中间包")
+                    }
+                    
+                    if (fileTreeConfig.compactMiddlePackages) {
+                        Column(modifier = Modifier.padding(start = 40.dp, bottom = 8.dp)) {
+                             Text("最大压缩层级: ${fileTreeConfig.compactMiddlePackageCount}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                             Slider(
+                                 value = fileTreeConfig.compactMiddlePackageCount.toFloat(),
+                                 onValueChange = { onConfigChange(fileTreeConfig.copy(compactMiddlePackageCount = it.toInt())) },
+                                 valueRange = 1f..10f,
+                                 steps = 8
+                             )
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(showIndentGuides = !fileTreeConfig.showIndentGuides)) }.padding(vertical = 8.dp)) {
+                        Checkbox(checked = fileTreeConfig.showIndentGuides, onCheckedChange = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("显示缩进参考线")
+                    }
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Text("行为", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(alwaysSelectOpenedFile = !fileTreeConfig.alwaysSelectOpenedFile)) }.padding(vertical = 8.dp)) {
+                        Checkbox(checked = fileTreeConfig.alwaysSelectOpenedFile, onCheckedChange = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("始终选中打开的文件")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSettingsMenu = false }) { Text("关闭") }
+            }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Toolbar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "文件树",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+            
+            Row(
+                modifier = Modifier.padding(end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // New File/Folder
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "New",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { showCreateMenu = true }
+                        .padding(4.dp)
+                )
+
+                // Locate File
+                Icon(
+                    imageVector = Icons.Filled.MyLocation,
+                    contentDescription = "Locate File",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { locateTrigger = System.currentTimeMillis() }
+                        .padding(4.dp)
+                )
+                
+                // Collapse All
+                Icon(
+                    imageVector = Icons.Filled.UnfoldLess,
+                    contentDescription = "Collapse All",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { collapseTrigger = System.currentTimeMillis() }
+                        .padding(4.dp)
+                )
+
+                // Expand All
+                Icon(
+                    imageVector = Icons.Filled.UnfoldMore,
+                    contentDescription = "Expand All",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { expandTrigger = System.currentTimeMillis() }
+                        .padding(4.dp)
+                )
+
+                // Settings
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Options",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { showSettingsMenu = true }
+                        .padding(4.dp)
+                )
+            }
+        }
+        
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
         FileTree(
             rootPath = projectPath,
+            activeFile = activeFile,
+            config = fileTreeConfig,
+            locateTrigger = locateTrigger,
+            collapseTrigger = collapseTrigger,
+            expandTrigger = expandTrigger,
+            refreshTrigger = refreshTrigger,
             modifier = Modifier.fillMaxSize(),
             onFileClick = onFileClick,
             onFileRenamed = onFileRenamed
