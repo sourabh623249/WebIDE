@@ -29,7 +29,24 @@
       "languageConfiguration": "textmate/cpp/language-configuration.json"
     },
     {
-     "grammar": "textmate/css/syntaxes/css.tmLanguage.json",
+      "grammar": "textmate/php/syntaxes/php.tmLanguage.json",
+      "name": "php",
+      "scopeName": "source.php",
+      "languageConfiguration": "textmate/php/language-configuration.json"
+    },
+    {
+      "grammar": "textmate/php/syntaxes/html.tmLanguage.json",
+      "name": "html-php",
+      "scopeName": "text.html.php",
+      "languageConfiguration": "textmate/php/language-configuration.json",
+      "embeddedLanguages": {
+        "source.js": "javascript",
+        "source.css": "css",
+        "text.html.basic": "html"
+      }
+    },
+    {
+      "grammar": "textmate/css/syntaxes/css.tmLanguage.json",
       "name": "css",
       "scopeName": "source.css",
       "languageConfiguration": "textmate/css/language-configuration.json",
