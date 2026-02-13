@@ -45,7 +45,7 @@ export PS1="\[\e[38;5;46m\]\u\[\033[39m\]@localhost \[\033[39m\]\w \[\033[0m\]\\
 
 # 5. 检查并初始化环境 (Node.js & LSP)
 # 仅在第一次运行(找不到 node 命令)时执行
-if ! command -v node &> /dev/null; then
+if ! command -v node > /dev/null 2>&1; then
     echo -e "\e[34;1m[*] \e[0mInitializing Environment (Alpine 3.19)...\e[0m"
 
     # 更新软件源索引并安装基础依赖
@@ -63,7 +63,9 @@ fi
 # 6. 启动交互式 Shell
 if [ "$#" -eq 0 ]; then
     # 加载系统配置
-    source /etc/profile
+    if [ -f /etc/profile ]; then
+        source /etc/profile
+    fi
 
     # 显示欢迎语
     if [ -f /etc/motd ]; then
