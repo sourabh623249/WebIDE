@@ -1,6 +1,6 @@
 # WebIDE
 
-![Version](https://img.shields.io/badge/version-0.2.4-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.2.9-blue?style=flat-square)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue?style=flat-square)](https://kotlinlang.org/)
 [![UI](https://img.shields.io/badge/UI-Jetpack_Compose-green?style=flat-square)](https://developer.android.com/jetpack/compose)
 [![License](https://img.shields.io/badge/License-GPLv3-orange?style=flat-square)](LICENSE)
@@ -26,25 +26,29 @@ The main code is located in `app/src/main/java/com/web/webide/`. The directory s
 ```text
 com.web.webide
 ├── build/              # Custom APK build system
-│   ├── ApkBuilder.kt   # Core logic coordinating resource compilation, packaging, and APK output
-│   └── ApkInstaller.kt # Handles installation requests for generated APKs
-├── core/               # Core infrastructure
-│   ├── utils/          # Utilities for logging, code formatting, permission management, etc.
-│   └── ...
+│   ├── ApkBuilder.java # Core logic for compiling and packaging APKs
+│   ├── ApkInstaller.kt # Handles APK installation
+│   └── ...             # Encryptor, ZipAligner
+├── core/               # App-specific core infrastructure
+│   └── utils/          # Utilities (Backup, CodeFormatter, WorkspaceManager, etc.)
 ├── files/              # File system module
-│   └── FileTree.kt     # Visual rendering and interaction logic for the recursive file tree
+│   ├── FileIcons.kt    # Icon resource mapping
+│   └── FileTree.kt     # File explorer UI and logic
 ├── ui/                 # Interface layer (Jetpack Compose)
-│   ├── editor/         # Code editor module
-│   │   ├── viewmodel/  # Editor state management (Integrating TextMate core)
-│   │   └── components/ # Editor components (Line number bar, code area, etc.)
-│   ├── preview/        # Real-time preview module
-│   │   └── webview/    # WebView implementation with JS Bridge communication capabilities
-│   ├── projects/       # Project management module
-│   │   └── ...         # Workspace selection, new project template generation
-│   ├── theme/          # Design system
-│   │   └── ...         # Dynamic colors, typography definitions
-│   └── welcome/        # Welcome/Onboarding guide flow
+│   ├── components/     # Shared UI components
+│   ├── editor/         # Code editor screen
+│   ├── preview/        # Web preview screen
+│   ├── settings/       # Application settings and about screens
+│   ├── terminal/       # Terminal emulator (Alpine Linux integration)
+│   ├── theme/          # Design system (Colors, Typography)
+│   └── welcome/        # Welcome/Onboarding screen
 ```
+
+**Key Assets (`app/src/main/assets/`)**:
+*   `textmate/`: TextMate grammars and configurations for syntax highlighting.
+*   `queries/`: Syntax tree queries.
+*   `init-host.sh`, `init.sh`, `proot`, `rootfs.bin`: Files for the embedded Alpine Linux environment.
+
 
 ## Features
 
@@ -52,6 +56,7 @@ com.web.webide
 *   **Project Management**: Full file system access permissions, supporting the creation and management of multi-file Web projects.
 *   **Real-time Preview**: Integrated WebView preview environment supporting JavaScript interaction testing.
 *   **Modern UI**: Written 100% in Kotlin and Jetpack Compose, supporting dynamic themes.
+*   **Git Integration**: Built-in Git version control with a visual commit history graph, supporting Clone, Commit, Push, Pull, and Branch management. Automatically ignores sensitive files and build artifacts.
 
 ## Discussion
 
