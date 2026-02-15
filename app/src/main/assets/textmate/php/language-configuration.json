@@ -1,6 +1,6 @@
 {
 	"comments": {
-		"lineComment": "//",
+		"lineComment": "//", 
 		"blockComment": [ "/*", "*/" ]
 	},
 	"brackets": [
@@ -37,6 +37,7 @@
 	"wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\-\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
 	"onEnterRules": [
 		{
+			
 			"beforeText": "^\\s*\\/\\*\\*(?!\\/)([^\\*]|\\*(?!\\/))*$",
 			"afterText": "^\\s*\\*\\/$",
 			"action": {
@@ -45,6 +46,7 @@
 			}
 		},
 		{
+			
 			"beforeText": "^\\s*\\/\\*\\*(?!\\/)([^\\*]|\\*(?!\\/))*$",
 			"action": {
 				"indent": "none",
@@ -52,6 +54,7 @@
 			}
 		},
 		{
+			
 			"beforeText": "^(\\t|(\\ \\ ))*\\ \\*(\\ ([^\\*]|\\*(?!\\/))*)?$",
 			"action": {
 				"indent": "none",
@@ -59,6 +62,7 @@
 			}
 		},
 		{
+			
 			"beforeText": "^(\\t|(\\ \\ ))*\\ \\*\\/\\s*$",
 			"action": {
 				"indent": "none",
@@ -66,6 +70,7 @@
 			}
 		},
 		{
+			
 			"beforeText": "^(\\t|(\\ \\ ))*\\ \\*[^/]*\\*\\/\\s*$",
 			"action": {
 				"indent": "none",
@@ -73,7 +78,9 @@
 			}
 		},
 		{
+			
 			"previousLineText": "^\\s*(((else ?)?if|for(each)?|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+			
 			"beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
 			"action": {
 				"indent": "outdent"

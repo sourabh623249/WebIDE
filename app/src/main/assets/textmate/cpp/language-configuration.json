@@ -33,7 +33,9 @@
 	},
 	"onEnterRules": [
 		{
+			
 			"previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+			
 			"beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
 			"action": {
 				"indent": "outdent"
