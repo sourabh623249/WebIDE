@@ -431,10 +431,12 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                     // 🔥 修改：使用一个协程顺序执行
                                     scope.launch {
                                         // 1. 先保存所有文件 (这是一个 suspend 函数，会等待 IO 完成)
-                                        viewModel.saveAllModifiedFiles(snackbarHostState)
+                                        val success = viewModel.saveAllModifiedFiles(snackbarHostState)
 
                                         // 2. 保存完成后，再跳转 (Undo 栈不会丢失，因为 Editor 实例没变)
-                                        navController.safeNavigate("preview/$folderName")
+                                        if (success) {
+                                            navController.safeNavigate("preview/$folderName")
+                                        }
                                     }
                                 }) {
                                     Icon(Icons.Filled.PlayArrow, "运行")
@@ -452,8 +454,8 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                             onClick = {
                                                 scope.launch {
                                                     viewModel.saveAllModifiedFiles(snackbarHostState)
+                                                    gitViewModel.refreshAll() // <--- 加这一行
                                                 }
-                                                gitViewModel.refreshAll() // <--- 加这一行
                                                 isMoreMenuExpanded = false
                                             }
                                         )
@@ -542,8 +544,8 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                         viewModel.saveAllModifiedFiles(
                                             snackbarHostState
                                         )
+                                        gitViewModel.refreshAll() // <--- 加这一行
                                     }
-                                    gitViewModel.refreshAll() // <--- 加这一行
                                 },
                                 onSearch = {
                                     isOpenSearch = !isOpenSearch
@@ -1477,7 +1479,10 @@ private suspend fun performBuild(
     snackbarHostState: SnackbarHostState,
     onResult: (BuildResultState) -> Unit
 ) {
-    viewModel.saveAllModifiedFiles(snackbarHostState)
+    if (!viewModel.saveAllModifiedFiles(snackbarHostState)) {
+        onResult(BuildResultState.Finished("保存失败，构建已取消"))
+        return
+    }
     val prefs = context.getSharedPreferences("WebIDE_Project_Settings", Context.MODE_PRIVATE)
     val isDebug = prefs.getBoolean("debug_$folderName", false)
 
