@@ -54,6 +54,18 @@
         "source.js": "javascript",
         "source.css": "css"
       }
+    },
+    {
+      "grammar": "textmate/typescript/syntaxes/TypeScript.tmLanguage.json",
+      "name": "typescript",
+      "scopeName": "source.ts",
+      "languageConfiguration": "textmate/typescript/language-configuration.json"
+    },
+    {
+      "grammar": "textmate/typescript/syntaxes/TypeScriptReact.tmLanguage.json",
+      "name": "typescriptreact",
+      "scopeName": "source.tsx",
+      "languageConfiguration": "textmate/typescript/language-configuration.json"
     }
   ]
 }
