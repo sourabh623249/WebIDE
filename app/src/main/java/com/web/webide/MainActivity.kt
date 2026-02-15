@@ -42,7 +42,7 @@ import androidx.navigation.compose.rememberNavController
 import com.web.webide.core.utils.*
 import com.web.webide.ui.ThemeViewModel
 import com.web.webide.ui.ThemeViewModelFactory
-import com.web.webide.ui.editor.components.TextMateInitializer
+import com.web.webide.ui.editor.TextMateInitializer
 import com.web.webide.ui.theme.MyComposeApplicationTheme
 import com.web.webide.ui.welcome.WelcomeScreen
 

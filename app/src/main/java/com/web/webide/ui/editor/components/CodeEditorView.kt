@@ -50,25 +50,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.web.webide.R
 import com.web.webide.ui.ThemeViewModel
 import com.web.webide.ui.ThemeViewModelFactory
+import com.web.webide.ui.editor.TextMateInitializer
 import com.web.webide.ui.editor.viewmodel.CodeEditorState
 import com.web.webide.ui.editor.viewmodel.EditorViewModel
 import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme
-import io.github.rosemoe.sora.langs.textmate.registry.FileProviderRegistry
-import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry
 import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry
-import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
-import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.component.EditorTextActionWindow
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.launch
-import org.eclipse.tm4e.core.registry.IThemeSource
 import java.io.File
 
-
-// 定义主题名称常量
-private const val THEME_LIGHT = "quietlight" // 浅色主题文件名 (assets/textmate/quietlight.json)
-private const val THEME_DARK = "darcula"     // 深色主题文件名 (assets/textmate/darcula.json)
+import io.github.rosemoe.sora.langs.textmate.TextMateLanguage
 
 @Composable
 fun CodeEditorView(
@@ -161,23 +152,31 @@ fun CodeEditorView(
         }
     }
 
-    // 🔥 核心逻辑：监听深色模式变化，切换高亮主题 🔥
+    // 当 TextMate 准备好时，重新加载编辑器语言（从 EmptyLanguage 切换到 TextMateLanguage）
+    LaunchedEffect(isEditorReady) {
+        if (isEditorReady) {
+            viewModel.reloadAllEditors(context)
+        }
+    }
+
+    // 监听深色模式变化
     LaunchedEffect(seedColor, isDark, isEditorReady, colorScheme) {
         if (isEditorReady) {
             try {
-                // 1. 切换 TextMate 的基础语法高亮主题
-                val targetTheme = if (isDark) THEME_DARK else THEME_LIGHT
+                // 1. 设置 TextMate 主题 (语法高亮)
+                val targetTheme = if (isDark) TextMateInitializer.THEME_DARK else TextMateInitializer.THEME_LIGHT
                 ThemeRegistry.getInstance().setTheme(targetTheme)
-
-                // 2. 重新创建配色方案应用到编辑器 (这会加载新的高亮颜色)
-                val newScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
-                editor.colorScheme = newScheme
-
-                // 3. 再次调用 ViewModel 更新 UI 颜色 (行号、背景色等，使其匹配 App 的 Material 主题)
-                // 注意：EditorColorSchemeManager 会覆盖掉 TextMate 主题里的背景色，这正是我们想要的
+                
+                // 2. 重新创建配色方案 (只针对使用 TextMate 的编辑器)
+                if (editor.editorLanguage is TextMateLanguage) {
+                    val newScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
+                    editor.colorScheme = newScheme
+                }
+                
+                // 3. 应用 Material 主题颜色覆盖 (背景色、行号等)
                 viewModel.updateEditorTheme(colorScheme)
-
-                // 强制重绘
+                
+                // 4. 强制刷新
                 editor.invalidate()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -318,135 +317,52 @@ fun CodeEditorView(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        if (isEditorReady) {
-            AndroidView(
-                factory = { _ ->
-                    (editor.parent as? ViewGroup)?.removeView(editor)
-                    editor
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { view ->
-                    view.props.singleDirectionDragging = false
-                    view.typefaceText = editorTypeface
-                    view.typefaceLineNumber = editorTypeface
-                    view.isWordwrap = editorConfig.wordWrap
-                    view.tabWidth = editorConfig.tabWidth
-                    view.setFoldingEnabled(editorConfig.codeFolding)
-                    // Remove zoom limits
-                    view.setScaleTextSizes(2f, 300f)
+        // 始终显示编辑器，即使未完全初始化
+        AndroidView(
+            factory = { _ ->
+                (editor.parent as? ViewGroup)?.removeView(editor)
+                editor
+            },
+            modifier = Modifier.fillMaxSize(),
+            update = { view ->
+                view.props.singleDirectionDragging = false
+                view.typefaceText = editorTypeface
+                view.typefaceLineNumber = editorTypeface
+                view.isWordwrap = editorConfig.wordWrap
+                view.tabWidth = editorConfig.tabWidth
+                view.setFoldingEnabled(editorConfig.codeFolding)
+                view.setScaleTextSizes(2f, 300f)
+                editor.setHighlightBracketPair(true)
 
-                    editor.setHighlightBracketPair(true)
-
-                    if (editorConfig.showInvisibles) {
-                        view.nonPrintablePaintingFlags =
-                            CodeEditor.FLAG_DRAW_WHITESPACE_LEADING or
-                                    CodeEditor.FLAG_DRAW_WHITESPACE_INNER or
-                                    CodeEditor.FLAG_DRAW_WHITESPACE_TRAILING or
-                                    CodeEditor.FLAG_DRAW_LINE_SEPARATOR
-                    } else {
-                        view.nonPrintablePaintingFlags = 0
-                    }
-
-                    if (view.text.toString() != state.content) {
-                        val cursor = view.cursor
-                        val cursorLine = cursor.leftLine
-                        val cursorColumn = cursor.leftColumn
-                        view.setText(state.content)
-                        try {
-                            val lineCount = view.text.lineCount
-                            val targetLine = cursorLine.coerceIn(0, lineCount - 1)
-                            val lineLength = if (targetLine < view.text.lineCount) view.text.getColumnCount(targetLine) else 0
-                            val targetColumn = cursorColumn.coerceIn(0, lineLength)
-                            view.setSelection(targetLine, targetColumn)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                    view.isEnabled = true
-                    view.visibility = android.view.View.VISIBLE
-                    view.requestLayout()
+                if (editorConfig.showInvisibles) {
+                    view.nonPrintablePaintingFlags =
+                        CodeEditor.FLAG_DRAW_WHITESPACE_LEADING or
+                                CodeEditor.FLAG_DRAW_WHITESPACE_INNER or
+                                CodeEditor.FLAG_DRAW_WHITESPACE_TRAILING or
+                                CodeEditor.FLAG_DRAW_LINE_SEPARATOR
+                } else {
+                    view.nonPrintablePaintingFlags = 0
                 }
-            )
-        } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = "正在初始化编辑器...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-            }
-        }
-    }
-}
 
-object TextMateInitializer {
-    private var isInitialized = false
-    private var isInitializing = false
-    private val callbacks = mutableListOf<() -> Unit>()
-
-    @OptIn(DelicateCoroutinesApi::class)
-    @Synchronized
-    fun initialize(context: Context, onComplete: (() -> Unit)? = null) {
-        if (isInitialized) {
-            onComplete?.invoke()
-            return
-        }
-        if (isInitializing) {
-            onComplete?.let { callbacks.add(it) }
-            return
-        }
-        isInitializing = true
-        onComplete?.let { callbacks.add(it) }
-
-        kotlinx.coroutines.GlobalScope.launch {
-            try {
-                val appContext = context.applicationContext
-                val assetsFileResolver = AssetsFileResolver(appContext.assets)
-                FileProviderRegistry.getInstance().addFileProvider(assetsFileResolver)
-                val themeRegistry = ThemeRegistry.getInstance()
-
-                // 🔥 修改：加载深色和浅色两个主题 🔥
-                // 确保你的 assets/textmate/ 目录下有这两个文件
-                val themes = mapOf(
-                    THEME_LIGHT to "textmate/$THEME_LIGHT.json",
-                    THEME_DARK to "textmate/$THEME_DARK.json"
-                )
-
-                themes.forEach { (name, path) ->
+                if (view.text.toString() != state.content) {
+                    val cursor = view.cursor
+                    val cursorLine = cursor.leftLine
+                    val cursorColumn = cursor.leftColumn
+                    view.setText(state.content)
                     try {
-                        FileProviderRegistry.getInstance().tryGetInputStream(path)?.use { inputStream ->
-                            themeRegistry.loadTheme(
-                                ThemeModel(
-                                    IThemeSource.fromInputStream(inputStream, path, null),
-                                    name
-                                )
-                            )
-                        }
+                        val lineCount = view.text.lineCount
+                        val targetLine = cursorLine.coerceIn(0, lineCount - 1)
+                        val lineLength = if (targetLine < view.text.lineCount) view.text.getColumnCount(targetLine) else 0
+                        val targetColumn = cursorColumn.coerceIn(0, lineLength)
+                        view.setSelection(targetLine, targetColumn)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
                 }
-
-                // 加载语法定义
-                GrammarRegistry.getInstance().loadGrammars("textmate/languages.json")
-
-                synchronized(this) {
-                    isInitialized = true
-                    isInitializing = false
-                    callbacks.forEach { it.invoke() }
-                    callbacks.clear()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                synchronized(this) {
-                    isInitializing = false
-                    callbacks.clear()
-                }
+                view.isEnabled = true
+                view.visibility = android.view.View.VISIBLE
+                view.requestLayout()
             }
-        }
+        )
     }
-
-    fun isReady() = isInitialized
 }

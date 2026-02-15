@@ -35,6 +35,7 @@ import com.web.webide.core.utils.BackupUtils
 import com.web.webide.core.utils.LogCatcher
 import com.web.webide.core.utils.PermissionManager
 import com.web.webide.ui.editor.EditorColorSchemeManager
+import com.web.webide.ui.editor.TextMateInitializer
 import com.web.webide.ui.editor.git.GitManager
 import io.github.rosemoe.sora.lang.Language
 import io.github.rosemoe.sora.lang.EmptyLanguage
@@ -173,7 +174,6 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private val editorInstances = mutableMapOf<String, CodeEditor>()
     private var hasPermissions = false
     private lateinit var appContext: Context
-    private var textMateInitialized = false
 
     private var lspProject: LspProject? = null
     private val addedLspDefinitions = mutableSetOf<String>()
@@ -443,28 +443,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         } catch (_: Throwable) { return null }
     }
 
-    private fun ensureTextMateInitialized(context: Context) {
-        if (textMateInitialized) return
-        try {
-            FileProviderRegistry.getInstance().addFileProvider(AssetsFileResolver(context.assets))
-            try {
-                val themeRegistry = ThemeRegistry.getInstance()
-                val themeName = "darcula"
-                val themePath = "textmate/$themeName.json"
-                val themeInputStream = FileProviderRegistry.getInstance().tryGetInputStream(themePath)
-                if (themeInputStream != null) {
-                    themeRegistry.loadTheme(ThemeModel(IThemeSource.fromInputStream(themeInputStream, themePath, null), themeName))
-                    themeRegistry.setTheme(themeName)
-                }
-            } catch (_: Exception) {}
-            GrammarRegistry.getInstance().loadGrammars("textmate/languages.json")
-            textMateInitialized = true
-        } catch (_: Exception) {}
-    }
-
     private fun loadTextMateLanguage(context: Context, extension: String): TextMateLanguage? {
         return try {
-            ensureTextMateInitialized(context)
+            if (!TextMateInitializer.isReady()) {
+                TextMateInitializer.initialize(context)
+                return null
+            }
             val scopeName = when (extension) {
                 "html", "htm" -> "text.html.basic"
                 "css" -> "source.css"
@@ -744,18 +728,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun updateEditorTheme(colorScheme: ColorScheme) {
         editorInstances.values.forEach { editor ->
             EditorColorSchemeManager.applyThemeColors(editor.colorScheme, colorScheme)
-            // 根据 Surface 亮度判断深色/浅色，或者直接使用 ColorScheme 的颜色
-            // 这里我们直接用 colorScheme 的 Surface 颜色作为背景
-            val isDark = colorScheme.background.luminance() < 0.5f
             
-            if (isDark) {
-                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFF1E1F22.toInt())
-                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFFFFFFFF.toInt())
-            } else {
-                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, 0xFFF2F2F2.toInt())
-                editor.colorScheme.setColor(EditorColorScheme.COMPLETION_WND_TEXT_PRIMARY, 0xFF000000.toInt())
+            // Re-apply rainbow colors if needed (as applying theme colors might reset some custom colors)
+            if (editor.editorLanguage is TsLanguage) {
+                configureRainbowColors(editor.colorScheme)
             }
-            if (editor.editorLanguage is TsLanguage) configureRainbowColors(editor.colorScheme)
             editor.invalidate()
         }
     }

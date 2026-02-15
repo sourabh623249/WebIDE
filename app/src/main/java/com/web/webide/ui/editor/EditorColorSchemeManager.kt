@@ -79,6 +79,24 @@ object EditorColorSchemeManager {
             setColor(EditorColorScheme.BLOCK_LINE, surfaceVariant)
             setColor(EditorColorScheme.BLOCK_LINE_CURRENT, primary)
             setColor(EditorColorScheme.SIDE_BLOCK_LINE, surfaceVariant)
+            
+            // 确保文本颜色适配深色/浅色模式 (针对 TreeSitter 或默认编辑器)
+            val onBackground = colorScheme.onBackground.toArgb()
+            setColor(EditorColorScheme.TEXT_NORMAL, onBackground)
+            
+            // 如果是浅色模式，优化 TreeSitter 的默认高亮颜色 (简单的覆盖，防止看不清)
+            if (!isDarkScheme(this)) {
+                 setColor(EditorColorScheme.KEYWORD, 0xFF0000FF.toInt()) // 蓝色关键字
+                 setColor(EditorColorScheme.COMMENT, 0xFF008000.toInt()) // 绿色注释
+                 setColor(EditorColorScheme.LITERAL, 0xFF098658.toInt()) // 深绿数字/常量
+                 setColor(EditorColorScheme.OPERATOR, 0xFF333333.toInt()) // 深灰操作符
+                 setColor(EditorColorScheme.IDENTIFIER_NAME, 0xFF001080.toInt()) // 深蓝标识符
+                 setColor(EditorColorScheme.IDENTIFIER_VAR, 0xFF001080.toInt()) // 深蓝变量
+                 setColor(EditorColorScheme.FUNCTION_NAME, 0xFF795E26.toInt()) // 金色函数名
+                 setColor(EditorColorScheme.ATTRIBUTE_NAME, 0xFF001080.toInt()) // 属性名
+                 setColor(EditorColorScheme.ATTRIBUTE_VALUE, 0xFFA31515.toInt()) // 属性值
+                 setColor(EditorColorScheme.HTML_TAG, 0xFF800000.toInt()) // HTML标签
+            }
         }
     }
 
