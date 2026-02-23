@@ -19,7 +19,6 @@
 
 package com.web.webide.ui.editor.components
 
-import android.content.Context
 import android.graphics.Typeface
 import android.view.ViewGroup
 import androidx.compose.foundation.isSystemInDarkTheme
