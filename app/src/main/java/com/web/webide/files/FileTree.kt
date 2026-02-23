@@ -33,6 +33,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -482,25 +483,66 @@ private fun FileTreeImpl(
         )
     }
     if (showCreateFileDialog) {
-        InputDialog(
-            title = "新建文件",
-            label = "文件名",
-            onDismiss = { showCreateFileDialog = false }) { name ->
-            showCreateFileDialog = false; showBottomSheet = false
-            selectedFileNode?.let { node ->
-                val parent = if (node.isDirectory) node.file else node.file.parentFile
-                parent?.let {
-                    scope.launch {
-                        withContext(Dispatchers.IO) {
-                            File(
-                                it,
-                                name
-                            ).createNewFile()
-                        }; refreshDirectory(it)
+        var name by remember { mutableStateOf("") }
+        val extensions = remember { listOf(".html", ".css", ".js", ".php", ".json", ".xml", ".kt", ".java", ".txt", ".md") }
+        
+        AlertDialog(
+            onDismissRequest = { showCreateFileDialog = false },
+            title = { Text("新建文件") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("文件名") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(extensions) { ext ->
+                            SuggestionChip(
+                                onClick = {
+                                    if (name.contains(".")) {
+                                        name = name.substringBeforeLast(".") + ext
+                                    } else {
+                                        name += ext
+                                    }
+                                },
+                                label = { Text(ext) }
+                            )
+                        }
                     }
                 }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            showCreateFileDialog = false
+                            showBottomSheet = false
+                            selectedFileNode?.let { node ->
+                                val parent = if (node.isDirectory) node.file else node.file.parentFile
+                                parent?.let {
+                                    scope.launch {
+                                        val newFile = File(it, name)
+                                        withContext(Dispatchers.IO) {
+                                            newFile.createNewFile()
+                                        }
+                                        refreshDirectory(it)
+                                        onFileClick(newFile)
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = name.isNotBlank()
+                ) { Text("确认") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateFileDialog = false }) { Text("取消") }
             }
-        }
+        )
     }
     if (showCreateFolderDialog) {
         InputDialog(
