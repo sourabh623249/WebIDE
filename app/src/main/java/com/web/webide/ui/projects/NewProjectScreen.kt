@@ -92,6 +92,7 @@ fun NewProjectScreen(navController: NavController) {
     var projectName by remember { mutableStateOf("") }
     var targetUrl by remember { mutableStateOf("https://") }
     var selectedType by remember { mutableStateOf(ProjectType.NORMAL) }
+    var createIndexPhp by remember { mutableStateOf(false) }
 
     // === 2. 可视化配置状态 (全量映射 webapp.json) ===
     var packageName by remember { mutableStateOf("com.example.myapp") }
@@ -263,6 +264,7 @@ fun NewProjectScreen(navController: NavController) {
             selectedType,
             SigningConfig(enableSigning, keystorePath, keystoreAlias, storePassword, keyPassword),
             iconPath,
+            createIndexPhp,
             finalJsonContent = jsonContent,
             onSuccess = { dir ->
                 isLoading = false
@@ -369,6 +371,17 @@ fun NewProjectScreen(navController: NavController) {
                     },
                     placeholder = "项目名称", icon = Icons.Outlined.Edit
                 )
+
+                AnimatedVisibility(
+                    visible = selectedType == ProjectType.NORMAL,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SwitchRow("创建 index.php", createIndexPhp) { createIndexPhp = it }
+                    }
+                }
 
                 // === 动画：显示/隐藏 URL 输入框 ===
                 AnimatedVisibility(
@@ -712,7 +725,7 @@ fun CleanTextField(
 @OptIn(DelicateCoroutinesApi::class)
 private fun createNewProject(
     context: Context, name: String, url: String, type: ProjectType,
-    signing: SigningConfig, iconPath: String, finalJsonContent: String,
+    signing: SigningConfig, iconPath: String, createIndexPhp: Boolean, finalJsonContent: String,
     onSuccess: (File) -> Unit, onError: (String) -> Unit
 ) {
     val wsPath = WorkspaceManager.getWorkspacePath(context)
@@ -750,7 +763,7 @@ private fun createNewProject(
             }
 
             when (type) {
-                ProjectType.NORMAL -> createNormalStructure(projectDir)
+                ProjectType.NORMAL -> createNormalStructure(projectDir, createIndexPhp)
                 ProjectType.WEBAPP -> createWebAppStructure(projectDir, finalJsonContent)
                 ProjectType.WEBSITE -> createWebsiteStructure(projectDir, url, finalJsonContent)
             }
@@ -763,9 +776,12 @@ private fun createNewProject(
     }
 }
 
-private fun createNormalStructure(dir: File) {
+private fun createNormalStructure(dir: File, createIndexPhp: Boolean) {
     File(dir, "css").mkdirs(); File(dir, "js").mkdirs()
     safeWrite(File(dir, "index.html"), ProjectTemplates.normalIndexHtml)
+    if (createIndexPhp) {
+        safeWrite(File(dir, "index.php"), ProjectTemplates.normalIndexPhp)
+    }
     safeWrite(File(dir, "css/style.css"), ProjectTemplates.normalCss)
     safeWrite(File(dir, "js/script.js"), ProjectTemplates.normalJs)
 }
