@@ -69,6 +69,7 @@ com.web.webide
 ## 讨论
 
 * QQ群:[1050254184](https://qm.qq.com/q/tFXuqMQDlK)
+* TG 频道: [Android_For_WebIDE](https://t.me/Android_For_WebIDE)
 
 ## 贡献者
 
