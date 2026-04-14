@@ -76,18 +76,18 @@ class TinyWebServer(private val rootDir: File) {
     var port: Int = 0
         private set
     
-    // 控制是否注入 Eruda
+    // 控制YesNo注入 Eruda
     var isDebug = AtomicBoolean(false)
 
-    // 定义常见的前端源码目录，服务器会自动去这些目录里找文件
+    // 定义常见的前端源码目录，服务器会自动去这些目录里找File
     private val fallbackDirectories = listOf(
         "",                 // 根目录
         "src",              // 常见源码目录
         "public",           // 常见静态资源目录
         "assets",           // 资源目录
         "src/main/assets",  // Android 结构
-        "dist",             // 构建输出目录
-        "build",            // 构建目录
+        "dist",             // BuildOutput Directory
+        "build",            // Build目录
         "www"               // Cordova/Ionic 目录
     )
 
@@ -133,30 +133,30 @@ class TinyWebServer(private val rootDir: File) {
                 socket.close(); return
             }
 
-            // 1. 路径解码
+            // 1. Path解码
             var rawPath = parts[1]
             if (rawPath.contains("?")) rawPath = rawPath.substring(0, rawPath.indexOf("?"))
             val decodedPath = URLDecoder.decode(rawPath, "UTF-8")
 
-            // 2. 智能文件查找逻辑
+            // 2. 智能FileFind逻辑
             var targetFile: File? = null
             var finalPath = decodedPath
 
-            // 移除开头的斜杠
+            // 移除On头的斜杠
             val relativePath = decodedPath.removePrefix("/")
 
-            // A. 遍历所有可能的目录寻找文件
+            // A. 遍历所有可能的目录寻找File
             for (dir in fallbackDirectories) {
                 val base = if (dir.isEmpty()) rootDir else File(rootDir, dir)
                 val candidate = File(base, relativePath)
 
-                // 情况1: 直接找到了文件
+                // 情况1: 直接找到了File
                 if (candidate.exists() && candidate.isFile) {
                     targetFile = candidate
                     break
                 }
 
-                // 情况2: 是目录，找 index.html
+                // 情况2: Yes目录，找 index.html
                 if (candidate.exists() && candidate.isDirectory) {
                     val indexFile = File(candidate, "index.html")
                     if (indexFile.exists()) {
@@ -165,7 +165,7 @@ class TinyWebServer(private val rootDir: File) {
                     }
                 }
 
-                // 情况3: 可能是省略了 .html 后缀
+                // 情况3: 可能Yes省略了 .html 后缀
                 val htmlCandidate = File(base, "$relativePath.html")
                 if (htmlCandidate.exists()) {
                     targetFile = htmlCandidate
@@ -332,7 +332,7 @@ fun WebPreviewScreen(folderName: String, navController: NavController, viewModel
     }
     val config = webAppConfig.value
 
-    // 权限
+    // Permission
     val permissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
     LaunchedEffect(config) {
@@ -349,7 +349,7 @@ fun WebPreviewScreen(folderName: String, navController: NavController, viewModel
         }
     }
 
-    // 屏幕与全屏
+    // 屏幕与Fullscreen
     var isFullScreenConfig by remember(config) {
         mutableStateOf(
             config?.optBoolean(
@@ -446,7 +446,7 @@ fun WebPreviewScreen(folderName: String, navController: NavController, viewModel
                 TopAppBar(
                     title = {
                         Column {
-                            Text("App 预览")
+                            Text("App Preview")
                             if (serverPort != 0) Text(
                                 ":$serverPort",
                                 style = MaterialTheme.typography.labelSmall,
@@ -498,19 +498,19 @@ fun WebPreviewScreen(folderName: String, navController: NavController, viewModel
                         }) {
                             Icon(
                                 Icons.Default.BugReport,
-                                "调试",
+                                "Debug",
                                 tint = if (isDebugEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         IconButton(onClick = { webViewRef?.reload() }) {
                             Icon(
                                 Icons.Default.Refresh,
-                                "刷新"
+                                "Refresh"
                             )
                         }
                         IconButton(onClick = {
                             isUserFullScreen = true
-                        }) { Icon(Icons.Default.Fullscreen, "全屏") }
+                        }) { Icon(Icons.Default.Fullscreen, "Fullscreen") }
                     }
                 )
             }
@@ -639,13 +639,13 @@ private fun configureFullWebView(
         FullWebAppInterface(context, webView, packageName, projectDir, onBackStateChange),
         "Android"
     )
-    // 3. 注入 websApp 对象 (新增兼容)
+    // 3. 注入 websApp 对象 (Added兼容)
     val websAdapter = WebsApiAdapter(
         context = context,
         webView = webView,
         sharedInterface = fullInterface,
         pathResolver = { path ->
-            // 解析 IDE 中的相对路径到真实 File
+            // 解析 IDE 中的相对Path到真实 File
             if (path.startsWith("/")) File(path) else File(projectDir, path)
         }
     )
@@ -657,7 +657,7 @@ private fun configureFullWebView(
             filePathCallback: ValueCallback<Array<Uri>>?,
             fileChooserParams: FileChooserParams?
         ): Boolean {
-            // 如果上一级传进来的回调是有效的，就执行
+            // 如果上一级传进来的回调Yes有效的，就执行
             if (filePathCallback != null) {
                 return onShowFileChooser(filePathCallback, fileChooserParams)
             }
@@ -694,13 +694,13 @@ private fun configureFullWebView(
             val dm =
                 context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
             dm.enqueue(request)
-            Toast.makeText(context, "正在下载: $filename", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Downloading...: $filename", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            // 如果 DownloadManager 失败，尝试用浏览器打开
+            // 如果 DownloadManager 失败，尝试用浏览器打On
             try {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             } catch (e2: Exception) {
-                Toast.makeText(context, "无法下载文件", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "None法下载File", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -709,12 +709,12 @@ private fun configureFullWebView(
         override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
 
-            // --- 修改开始：增加调试日志 ---
+            // --- 修改On始：增加DebugLog ---
             val prefs =
                 context.getSharedPreferences("WebIDE_Project_Settings", Context.MODE_PRIVATE)
             val isDebug = prefs.getBoolean("debug_${projectDir.name}", false)
 
-            android.util.Log.e("WebView_Inject", "页面加载完毕: $url, 调试开关状态: $isDebug")
+            android.util.Log.e("WebView_Inject", "页面加载完毕: $url, DebugOnOff状态: $isDebug")
 
             if (isDebug) {
                 injectEruda(context, view)
@@ -744,13 +744,13 @@ private fun configureFullWebView(
 private fun injectEruda(context: Context, webView: WebView?) {
     if (webView == null) return
 
-    // 【改进1】跳过 about:blank，消除 localStorage 报错
+    // 【改进1】Skip about:blank，消除 localStorage 报错
     val currentUrl = webView.url
     if (currentUrl == null || currentUrl == "about:blank") {
         return
     }
 
-    android.util.Log.e("WebView_Inject", "开始注入 Eruda -> $currentUrl")
+    android.util.Log.e("WebView_Inject", "On始注入 Eruda -> $currentUrl")
 
     val scriptContent = try {
         context.assets.open("eruda.min.js").bufferedReader().use { it.readText() }
@@ -777,7 +777,7 @@ private fun injectEruda(context: Context, webView: WebView?) {
                     }
                 });
                 
-                // 【改进2】强制设置图标位置和层级，防止被网页挡住
+                // 【改进2】强制Settings图标Location和层级，防止被网页挡住
                 var entryBtn = document.querySelector('.eruda-entry-btn');
                 if(entryBtn) {
                     entryBtn.style.zIndex = "999999";
@@ -788,7 +788,7 @@ private fun injectEruda(context: Context, webView: WebView?) {
                 
                 console.log('Eruda [Local] init success'); 
                 
-                // 【可选】如果你实在找不到图标，取消下面这行的注释，让面板直接弹出来
+                // 【可选】如果你实在找不到图标，Cancel下面这行的注释，让面板直接弹出来
                 // eruda.show();
             }
         } catch(e) {

@@ -56,7 +56,7 @@ fun GitGraphListCompact(commits: List<GitCommitUI>) {
             .background(MaterialTheme.colorScheme.surface)
     ) {
         itemsIndexed(commits) { index, commit ->
-            // 为了画出连续的线，我们需要知道下一个 commit 的 totalLanes
+            // 为了画出连续的线，我们需要知道Next commit 的 totalLanes
             // 但在 compose 绘制中，我们只画 "Downwards" 线，所以只需要当前 commit 的数据即可
             GitLogItemAligned(commit)
             HorizontalDivider(
@@ -80,8 +80,8 @@ fun GitLogItemAligned(commit: GitCommitUI) {
     )
 
     // 尺寸常量
-    val rowHeight = if (expanded) 80.dp else 40.dp // IDEA 默认是比较矮的
-    val graphWidth = 40.dp // 🔥 强制固定左侧宽度，保证右侧对齐！
+    val rowHeight = if (expanded) 80.dp else 40.dp // IDEA 默认Yes比较矮的
+    val graphWidth = 40.dp // 🔥 强制固定左侧宽度，保证右侧Align！
     val laneW = 12.dp      // 轨道间距
     val dotR = 5.dp        // 圆点半径
 
@@ -107,12 +107,12 @@ fun GitLogItemAligned(commit: GitCommitUI) {
 
                 // 1. 画穿透竖线 (Passing Lines)
                 // 逻辑：假设最大轨道数为 totalLanes。
-                // 凡是不等于 myLane 的，且在 parentLanes 范围内的(或者上一行遗留的)，通常都需要画竖线。
+                // 凡Yes不等于 myLane 的，且在 parentLanes 范围内的(或者上一行遗留的)，通常都需要画竖线。
                 // 这里简化：除了 myLane，其他 < totalLanes 的都画竖线
-                // 注意：这只是为了视觉连贯。
+                // 注意：这只Yes为了视觉连贯。
 
                 // 更精确的逻辑：画所有 "Active" 的线。
-                // 也就是：所有 < max(lane, parentLanes.max) 的轨道，如果不是当前点，就画线连接上下。
+                // 也就Yes：所有 < max(lane, parentLanes.max) 的轨道，如果不Yes当前点，就画线连接上下。
                 // 这里我们画所有非当前的轨道直线。
                 val maxLaneIdx = max(commit.lane, commit.parentLanes.maxOrNull() ?: 0)
                 // 限制一下最大绘制轨道，防止画到屏幕外面
@@ -174,7 +174,7 @@ fun GitLogItemAligned(commit: GitCommitUI) {
             }
         }
 
-        // --- 2. 右侧文字区 (对齐！) ---
+        // --- 2. 右侧文字区 (Align！) ---
         Column(
             modifier = Modifier
                 .weight(1f) // 占据剩余所有空间
@@ -201,7 +201,7 @@ fun GitLogItemAligned(commit: GitCommitUI) {
                 )
             }
 
-            // 第二行：作者 · 时间
+            // 第二行：Author · 时间
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 1.dp)
@@ -223,9 +223,9 @@ fun GitLogItemAligned(commit: GitCommitUI) {
                     color = MaterialTheme.colorScheme.outline
                 )
 
-                Spacer(Modifier.weight(1f)) // 撑开中间
+                Spacer(Modifier.weight(1f)) // 撑On中间
 
-                // 只有展开时显示 Hash 复制
+                // 只有Expand时显示 Hash Copy
                 if (expanded) {
                     Icon(
                         Icons.Default.ContentCopy, null,

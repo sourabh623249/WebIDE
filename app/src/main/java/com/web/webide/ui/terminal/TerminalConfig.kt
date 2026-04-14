@@ -20,7 +20,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-// 文件: java/com/example/sorarunrun/terminal/TerminalConfig.kt
+// File: java/com/example/sorarunrun/terminal/TerminalConfig.kt
 package com.web.webide.ui.terminal
 
 object TerminalConfig {
@@ -57,9 +57,9 @@ object TerminalConfig {
     // 获取背景色
     fun getBackgroundColor(isDark: Boolean): Int {
         return if (isDark) {
-            0xFF000000.toInt() // 深色模式：纯黑
+            0xFF000000.toInt() // Dark Mode：纯黑
         } else {
-            0xFFFFFFFF.toInt() // 浅色模式：纯白
+            0xFFFFFFFF.toInt() // Light Mode：纯白
         }
     }
 

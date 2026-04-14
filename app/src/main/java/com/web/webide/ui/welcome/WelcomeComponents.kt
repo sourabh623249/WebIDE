@@ -53,14 +53,14 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
 
-// --- 背景组件：修复浅色底色过亮问题 ---
+// --- 背景组件：修复Light底色过亮问题 ---
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun WelcomeBackground(
     currentTheme: ThemeColor?,
     isDarkTheme: Boolean,
-    monetPrimary: Color? = null, // 新增：Monet 模式下的主色
-    monetTertiary: Color? = null // 新增：Monet 模式下的强调色
+    monetPrimary: Color? = null, // Added：Monet 模式下的主色
+    monetTertiary: Color? = null // Added：Monet 模式下的强调色
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val density = LocalDensity.current
@@ -69,26 +69,26 @@ fun WelcomeBackground(
     val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
 
-    // 1. 确定背景基色
+    // 1. OK背景基色
     val baseBg = if (currentTheme != null) {
         if (isDarkTheme) currentTheme.dark.background else currentTheme.light.background
     } else {
-        // Monet / 跟随系统
-        if (isDarkTheme) colorScheme.surface else colorScheme.surfaceContainerLowest // 浅色用最亮的背景
+        // Monet / Follow System
+        if (isDarkTheme) colorScheme.surface else colorScheme.surfaceContainerLowest //Light用最亮的背景
     }
 
-    // 2. 确定光球颜色
-    // 逻辑：如果有选定主题，用主题色。如果是 Monet，用传入的动态色或默认色。
+    // 2. OK光球颜色
+    // 逻辑：如果有选定Theme，用Theme色。如果Yes Monet，用传入的动态色或默认色。
     val spec = if (isDarkTheme) currentTheme?.dark else currentTheme?.light
     val rawPrimary = spec?.primary ?: monetPrimary ?: colorScheme.primary
     val rawAccent = spec?.accent ?: monetTertiary ?: colorScheme.tertiary
 
-    // 3. 关键修复：光球在浅色模式下的可见性
-    // 浅色模式下，单纯的 alpha 0.05 看不见。
+    // 3. Off键修复：光球在Light Mode下的可见性
+    // Light Mode下，单纯的 alpha 0.05 看不见。
     // 技巧：让光球颜色稍微深一点 (compositeOver Gray)，然后 alpha 给高一点。
     val blobAlpha = if (isDarkTheme) 0.15f else 0.12f
 
-    // 浅色模式下，让光球颜色稍微“重”一点，否则在白色背景上像脏印子
+    // Light Mode下，让光球颜色稍微“重”一点，No则在白色背景上像脏印子
     val effectivePrimary = if (isDarkTheme) rawPrimary else rawPrimary.compositeOver(Color.Gray)
     val effectiveAccent = if (isDarkTheme) rawAccent else rawAccent.compositeOver(Color.Gray)
 
@@ -130,7 +130,7 @@ fun WelcomeBackground(
     }
 }
 
-// --- 权限卡片 ---
+// --- Permission卡片 ---
 @Composable
 internal fun PermissionCard(
     icon: ImageVector,
@@ -186,7 +186,7 @@ internal fun PermissionCard(
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    // 使用 LocalContentColor 并加透明度
+                    // 使用 LocalContentColor 并加Opacity
                     color = LocalContentColor.current.copy(alpha = 0.7f),
                     lineHeight = 16.sp
                 )
@@ -209,14 +209,14 @@ internal fun PermissionCard(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Text("开启", fontSize = 13.sp)
+                    Text("On启", fontSize = 13.sp)
                 }
             }
         }
     }
 }
 
-// --- 主题预览卡片 ---
+// --- ThemePreview卡片 ---
 
 @Composable
 internal fun ThemePreviewCard(
@@ -233,8 +233,8 @@ internal fun ThemePreviewCard(
     )
     val borderWidth by animateDpAsState(if (isSelected) 3.dp else 0.dp, label = "borderW")
 
-    // 2. 颜色平滑过渡动画 (关键！解决生硬问题)
-    // 根据传入的 isDarkTheme 决定目标颜色，并应用 500ms 动画
+    // 2. 颜色平滑过渡动画 (Off键！解决生硬问题)
+    // 根据传入的 isDarkTheme 决定目标颜色，并Apply 500ms 动画
     val targetSpec = if (isDarkTheme) theme.dark else theme.light
 
     val animBgColor by animateColorAsState(targetSpec.background, tween(500), label = "bgColor")
@@ -242,11 +242,11 @@ internal fun ThemePreviewCard(
     val animSurfaceColor by animateColorAsState(targetSpec.surface, tween(500), label = "surfColor")
     val animBorderColor by animateColorAsState(targetSpec.primary, tween(500), label = "borderColor")
 
-    // 3. "两球接触" 位置动画
-    // 我们定义两个状态的位置，当模式切换时，通过颜色过渡 + 位置微调产生动态感
-    // 这里设计为：Light 模式下球稍微分开一点，Dark 模式下球稍微紧凑一点，或者反过来
+    // 3. "两球接触" Location动画
+    // 我们定义两个状态的Location，当模式切换时，通过颜色过渡 + Location微调产生动态感
+    // 这里设计为：Light 模式下球稍微分On一点，Dark 模式下球稍微紧凑一点，或者反过来
     val circleOffsetOne by animateDpAsState(
-        targetValue = if (isDarkTheme) 12.dp else 8.dp, // 稍微移动位置
+        targetValue = if (isDarkTheme) 12.dp else 8.dp, // 稍微移动Location
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "offset1"
     )
@@ -320,7 +320,7 @@ internal fun ThemePreviewCard(
     }
 }
 
-// --- 自定义主题卡片 ---
+// --- CustomTheme卡片 ---
 @Composable
 internal fun CustomThemeCard(isSelected: Boolean, onClick: () -> Unit) {
     val scale by animateFloatAsState(if (isSelected) 1.1f else 1f, label = "scale")
@@ -349,7 +349,7 @@ internal fun CustomThemeCard(isSelected: Boolean, onClick: () -> Unit) {
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "自定义",
+            text = "Custom",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
         )

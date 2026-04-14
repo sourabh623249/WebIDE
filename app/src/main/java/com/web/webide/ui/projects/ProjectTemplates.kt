@@ -140,7 +140,7 @@ button:active { background-color: #0056b3; }
 
     val webAppIndexJs = """
 function testToast() {
-    App.ui.toast("Hello World! 这是一个 Toast");
+    App.ui.toast("Hello World! 这Yes一个 Toast");
 }
     """.trimIndent()
 

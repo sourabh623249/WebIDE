@@ -53,23 +53,23 @@ object PermissionManager {
     }
 
     /**
-     * ✅ 智能判断：指定路径是否需要申请系统权限
+     * ✅ 智能判断：指定PathYesNo需要申请系统Permission
      * 私有目录 (Android/data/...) -> 不需要 -> 返回 false
      * 公共目录 (SDCard/...) -> 需要 -> 返回 true
      */
     fun isSystemPermissionRequiredForPath(context: Context, path: String): Boolean {
-        // 获取私有目录根路径 .../Android/data/包名
+        // 获取私有目录根Path .../Android/data/Package Name
         val appExternalDir = context.getExternalFilesDir(null)?.parentFile?.parentFile?.absolutePath
 
-        // 如果获取失败，为了安全默认需要权限
+        // 如果获取失败，为了安全默认Permissions Required
         if (appExternalDir == null) return true
 
-        // 如果路径是私有目录的子目录，直接豁免
+        // 如果PathYes私有目录的子目录，直接豁免
         if (path.startsWith(appExternalDir)) {
             return false
         }
 
-        // 其他目录根据版本判断
+        // 其他目录根据Version判断
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             return !Environment.isExternalStorageManager()
         } else {

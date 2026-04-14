@@ -38,7 +38,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
     var isLoading by mutableStateOf(false)
     var statusMessage by mutableStateOf<String?>(null)
 
-    // 🔥 配置相关
+    // 🔥 配置相Off
     var remoteUrl by mutableStateOf("")
     var userEmail by mutableStateOf("")
     var savedAuth by mutableStateOf<GitAuth?>(null)
@@ -85,7 +85,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         remoteUrl = prefs.getString("remote_url", "") ?: ""
         userEmail = prefs.getString("user_email", "") ?: ""
 
-        // 读取认证信息
+        // 读取认证Info
         val authTypeStr = prefs.getString("auth_type", "HTTPS") ?: "HTTPS"
         val username = prefs.getString("username", "") ?: ""
         val token = prefs.getString("token", "") ?: ""
@@ -129,7 +129,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
                 putString("private_key", privateKey)
                 putString("passphrase", passphrase)
             }
-            statusMessage = "配置已保存"
+            statusMessage = "配置已Save"
         }
     }
 
@@ -242,10 +242,10 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
                 val author = savedAuth?.username?.ifEmpty { "AndroidUser" } ?: "AndroidUser"
                 val email = userEmail.ifEmpty { "user@ide.com" }
                 gitManager?.commitAll(msg, author, email)
-                if (pushAfter) push() else statusMessage = "提交成功"
+                if (pushAfter) push() else statusMessage = "Commit successful"
                 refreshAll()
             } catch (e: Exception) {
-                statusMessage = "操作失败: ${e.message}"
+                statusMessage = "Failed: ${e.message}"
             } finally { isLoading = false }
         }
     }
@@ -256,9 +256,9 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val auth = savedAuth ?: throw Exception("未配置账号")
                 gitManager?.push(auth)
-                statusMessage = "推送成功"
+                statusMessage = "Push successful"
             } catch (e: Exception) {
-                statusMessage = "推送失败: ${e.message}"
+                statusMessage = "Push failed: ${e.message}"
                 e.printStackTrace()
             } finally { isLoading = false }
         }
@@ -285,9 +285,9 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             isLoading = true
             try {
                 gitManager?.createBranch(name)
-                statusMessage = "分支 $name 创建并切换成功"
+                statusMessage = "Branch $name 创建并切换成功"
                 refreshAll()
-            } catch (e: Exception) { statusMessage = "创建分支失败: ${e.message}" }
+            } catch (e: Exception) { statusMessage = "创建Branch失败: ${e.message}" }
             finally { isLoading = false }
         }
     }

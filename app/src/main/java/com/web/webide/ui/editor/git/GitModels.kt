@@ -27,7 +27,7 @@ package com.web.webide.ui.editor.git
 
 import androidx.compose.ui.graphics.Color
 
-// --- 以下保持原有的 Git 模型不变 ---
+// --- 以下保持原有的 Git Model不变 ---
 
 data class GitCommitUI(
     val hash: String,

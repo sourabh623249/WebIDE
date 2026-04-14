@@ -454,8 +454,8 @@ private fun FileTreeImpl(
     if (showDeleteConfirmationDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmationDialog = false },
-            title = { Text("确认删除") },
-            text = { Text("你确定要删除 “${selectedFileNode?.file?.name}” 吗？") },
+            title = { Text("ConfirmDelete") },
+            text = { Text("你OK要Delete “${selectedFileNode?.file?.name}” 吗？") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -471,12 +471,12 @@ private fun FileTreeImpl(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("删除") }
+                ) { Text("Delete") }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmationDialog = false }) {
                     Text(
-                        "取消"
+                        "Cancel"
                     )
                 }
             }
@@ -488,13 +488,13 @@ private fun FileTreeImpl(
         
         AlertDialog(
             onDismissRequest = { showCreateFileDialog = false },
-            title = { Text("新建文件") },
+            title = { Text("New File") },
             text = {
                 Column {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("文件名") },
+                        label = { Text("Filename") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -537,17 +537,17 @@ private fun FileTreeImpl(
                         }
                     },
                     enabled = name.isNotBlank()
-                ) { Text("确认") }
+                ) { Text("Confirm") }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateFileDialog = false }) { Text("取消") }
+                TextButton(onClick = { showCreateFileDialog = false }) { Text("Cancel") }
             }
         )
     }
     if (showCreateFolderDialog) {
         InputDialog(
-            title = "新建文件夹",
-            label = "文件夹名",
+            title = "New Folder",
+            label = "File夹名",
             onDismiss = { showCreateFolderDialog = false }) { name ->
             showCreateFolderDialog = false; showBottomSheet = false
             selectedFileNode?.let { node ->
@@ -567,12 +567,12 @@ private fun FileTreeImpl(
     }
     if (showRenameDialog) {
         InputDialog(
-            title = "重命名",
-            label = "新名称",
+            title = "Rename",
+            label = "新Name",
             initialValue = selectedFileNode?.file?.name ?: "",
             onDismiss = { showRenameDialog = false }
         ) { name ->
-            // 1. 关闭弹窗
+            // 1. Close弹窗
             showRenameDialog = false
             showBottomSheet = false
 
@@ -584,16 +584,16 @@ private fun FileTreeImpl(
                         val oldFile = node.file
                         val newFile = File(parentDir, name)
 
-                        // 2. 在 IO 线程执行重命名
+                        // 2. 在 IO 线程执行Rename
                         val success = withContext(Dispatchers.IO) {
                             oldFile.renameTo(newFile)
                         }
 
-                        // 3. 根据结果刷新 UI
+                        // 3. 根据结果Refresh UI
                         if (success) {
-                            // 刷新当前文件夹视图
+                            // Refresh当前File夹视图
                             refreshDirectory(parentDir)
-                            // 【关键】通知外部更新 Tabs
+                            // 【Off键】通知外部更新 Tabs
                             onFileRenamed(oldFile, newFile)
                         }
                     }
@@ -605,8 +605,8 @@ private fun FileTreeImpl(
         val file = showInstallApkDialog!!
         AlertDialog(
             onDismissRequest = { showInstallApkDialog = null },
-            title = { Text("安装应用") },
-            text = { Text("是否安装 \"${file.name}\"？") },
+            title = { Text("InstallApply") },
+            text = { Text("YesNoInstall \"${file.name}\"？") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -620,14 +620,14 @@ private fun FileTreeImpl(
                             }
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "无法启动安装: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "None法启动Install: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("安装") }
+                ) { Text("Install") }
             },
             dismissButton = {
                 TextButton(onClick = { showInstallApkDialog = null }) {
-                    Text("取消")
+                    Text("Cancel")
                 }
             }
         )
@@ -864,7 +864,7 @@ fun FileActionBottomSheet(
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(node.file.name, style = MaterialTheme.typography.titleMedium)
-                val size = if (node.isDirectory) "文件夹" else formatFileSize(node.file.length())
+                val size = if (node.isDirectory) "File夹" else formatFileSize(node.file.length())
                 val date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(node.file.lastModified()))
                 Text("$size | $date", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -872,8 +872,8 @@ fun FileActionBottomSheet(
         
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        BottomSheetActionItem(Icons.Default.Description, "新建文件", { onCreateFileRequest(); onDismiss() })
-        BottomSheetActionItem(Icons.Default.CreateNewFolder, "新建文件夹", { onCreateFolderRequest(); onDismiss() })
+        BottomSheetActionItem(Icons.Default.Description, "New File", { onCreateFileRequest(); onDismiss() })
+        BottomSheetActionItem(Icons.Default.CreateNewFolder, "New Folder", { onCreateFolderRequest(); onDismiss() })
         
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 8.dp),
@@ -881,13 +881,13 @@ fun FileActionBottomSheet(
             color = DividerDefaults.color
         )
         
-        BottomSheetActionItem(Icons.Default.DriveFileRenameOutline, "重命名", { onRenameRequest(); onDismiss() })
-        BottomSheetActionItem(Icons.Default.ContentCopy, "复制绝对路径", {
+        BottomSheetActionItem(Icons.Default.DriveFileRenameOutline, "Rename", { onRenameRequest(); onDismiss() })
+        BottomSheetActionItem(Icons.Default.ContentCopy, "Copy绝对Path", {
             clipboardManager.setText(AnnotatedString(node.file.absolutePath))
-            Toast.makeText(context, "路径已复制", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "PathCopied", Toast.LENGTH_SHORT).show()
             onDismiss()
         })
-        BottomSheetActionItem(Icons.Default.Delete, "删除", { onDeleteRequest(); onDismiss() }, MaterialTheme.colorScheme.error)
+        BottomSheetActionItem(Icons.Default.Delete, "Delete", { onDeleteRequest(); onDismiss() }, MaterialTheme.colorScheme.error)
     }
 }
 
@@ -898,7 +898,7 @@ fun InputDialog(title: String, label: String, initialValue: String = "", onDismi
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
-        confirmButton = { Button(onClick = { if (text.isNotBlank()) onConfirm(text) }, enabled = text.isNotBlank()) { Text("确认") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        confirmButton = { Button(onClick = { if (text.isNotBlank()) onConfirm(text) }, enabled = text.isNotBlank()) { Text("Confirm") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

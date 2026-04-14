@@ -570,9 +570,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             val message = if (failCount == 0) {
-                "已保存 $successCount 个文件"
+                "已Save $successCount 个File"
             } else {
-                "保存完成: $successCount 成功, $failCount 失败\n最后错误: $lastError"
+                "SaveDone: $successCount 成功, $failCount 失败\n最后Error: $lastError"
             }
 
             withContext(Dispatchers.Main) {

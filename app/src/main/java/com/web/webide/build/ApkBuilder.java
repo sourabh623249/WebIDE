@@ -42,10 +42,10 @@ import com.Day.Studio.Function.axmleditor.editor.PermissionEditor;
 
 public class ApkBuilder {
 
-    // 模板 APK 的原始包名
+    // 模板 APK 的原始Package Name
     private static final String OLD_PACKAGE_NAME = "com.web.webapp";
 
-    // 需要替换图标的资源路径 (模板中的路径)
+    // 需要Replace图标的资源Path (模板中的Path)
     private static final String ICON_RES_1 = "res/MO.webp"; // 桌面图标
     private static final String ICON_RES_2 = "res/fq.webp"; // 前景/圆图标
 
@@ -54,7 +54,7 @@ public class ApkBuilder {
         String appPackage = "com.example.webapp";
         String versionName = "1.0.0";
         String versionCode = "1";
-        String iconPath = null; // 新增：用户图标路径
+        String iconPath = null; // Added：用户图标Path
         List<String> permissions = new ArrayList<>();
     }
 
@@ -66,12 +66,12 @@ public class ApkBuilder {
             String pkg,
             String ver,
             String code,
-            String amph, // 图标路径 (CodeEditScreen 传入的 absolutePath)
+            String amph, // 图标Path (CodeEditScreen 传入的 absolutePath)
             String[] ps,
-            boolean isDebug, // 🔥 改动1：新增 isDebug 参数
-            boolean enableEncryption, // 🔥 新增：是否启用加密
+            boolean isDebug, // 🔥 改动1：Added isDebug 参数
+            boolean enableEncryption, // 🔥 Added：YesNo启用加密
 
-            // 🔥 新增：自定义签名参数
+            // 🔥 Added：CustomSign参数
             String customKeyPath,
             String customStorePass,
             String customAlias,
@@ -86,26 +86,26 @@ public class ApkBuilder {
         File alignedZipFile = new File(bf, "temp_aligned.apk");
         File finalApkFile = new File(bf, aname + "_release.apk");
 
-        // 🔥 开始新构建前，清理旧的构建日志
+        // 🔥 On始新Build前，清理旧的BuildLog
         LogCatcher.clearBuildLogs();
-        LogCatcher.i("ApkBuilder", "========== 开始构建 WebApp (Debug: " + isDebug + ") ==========");
+        LogCatcher.i("ApkBuilder", "========== On始Build WebApp (Debug: " + isDebug + ") ==========");
 
         LogCatcher.d("ApkBuilder", "--------------------------------------------------");
-        LogCatcher.d("ApkBuilder", "构建配置详情:");
+        LogCatcher.d("ApkBuilder", "Build配置详情:");
         LogCatcher.d("ApkBuilder", "  - 项目根目录: " + mRootDir);
-        LogCatcher.d("ApkBuilder", "  - 项目路径: " + projectPath);
-        LogCatcher.d("ApkBuilder", "  - 应用名称: " + aname);
-        LogCatcher.d("ApkBuilder", "  - 包名: " + pkg);
-        LogCatcher.d("ApkBuilder", "  - 版本名: " + ver);
-        LogCatcher.d("ApkBuilder", "  - 版本号: " + code);
-        LogCatcher.d("ApkBuilder", "  - 图标路径: " + (amph != null ? amph : "默认"));
+        LogCatcher.d("ApkBuilder", "  - 项目Path: " + projectPath);
+        LogCatcher.d("ApkBuilder", "  - App Name: " + aname);
+        LogCatcher.d("ApkBuilder", "  - Package Name: " + pkg);
+        LogCatcher.d("ApkBuilder", "  - Version名: " + ver);
+        LogCatcher.d("ApkBuilder", "  - Version Code: " + code);
+        LogCatcher.d("ApkBuilder", "  - 图标Path: " + (amph != null ? amph : "默认"));
         LogCatcher.d("ApkBuilder", "  - 加密启用: " + enableEncryption);
-        LogCatcher.d("ApkBuilder", "  - 权限列表: " + (ps != null ? String.join(", ", ps) : "无"));
+        LogCatcher.d("ApkBuilder", "  - Permission列表: " + (ps != null ? String.join(", ", ps) : "None"));
         LogCatcher.d("ApkBuilder", "--------------------------------------------------");
 
         try {
-            // 0. 清理旧文件
-            LogCatcher.d("ApkBuilder", "正在清理临时文件...");
+            // 0. 清理旧File
+            LogCatcher.d("ApkBuilder", "正在清理临时File...");
             if (rawZipFile.exists()) rawZipFile.delete();
             if (alignedZipFile.exists()) alignedZipFile.delete();
             if (finalApkFile.exists()) finalApkFile.delete();
@@ -117,12 +117,12 @@ public class ApkBuilder {
             config.versionName = ver;
             config.versionCode = code;
 
-            // 设置图标路径 (如果不为空且文件存在)
+            // Settings图标Path (如果不为空且File存在)
             if (amph != null && !amph.isEmpty() && new File(amph).exists()) {
                 config.iconPath = amph;
-                LogCatcher.d("ApkBuilder", "已检测到自定义图标: " + amph);
+                LogCatcher.d("ApkBuilder", "已检测到Custom图标: " + amph);
             } else {
-                LogCatcher.d("ApkBuilder", "未检测到自定义图标或文件不存在，将使用默认图标");
+                LogCatcher.d("ApkBuilder", "未检测到Custom图标或File不存在，将使用默认图标");
             }
 
             if (ps != null) {
@@ -130,23 +130,23 @@ public class ApkBuilder {
             }
 
             // 2. 提取模板 APK
-            LogCatcher.i("ApkBuilder", ">> 正在提取构建模板...");
+            LogCatcher.i("ApkBuilder", ">> 正在提取Build模板...");
             long t1 = System.currentTimeMillis();
             if (!copyAssetFile(context, "webapp_1.0.apk", templateApk)) {
-                LogCatcher.e("ApkBuilder", "错误: 找不到构建模板 (assets/webapp_1.0.apk)");
-                return "error: 找不到构建模板 (assets/webapp_1.0.apk)";
+                LogCatcher.e("ApkBuilder", "Error: 找不到Build模板 (assets/webapp_1.0.apk)");
+                return "error: 找不到Build模板 (assets/webapp_1.0.apk)";
             }
-            LogCatcher.d("ApkBuilder", "模板提取完成，耗时: " + (System.currentTimeMillis() - t1) + "ms, 大小: " + templateApk.length() + " bytes");
+            LogCatcher.d("ApkBuilder", "模板提取Done，耗时: " + (System.currentTimeMillis() - t1) + "ms, Size: " + templateApk.length() + " bytes");
 
-            // 3. 合并逻辑 (包含图标替换)
+            // 3. Merge逻辑 (包含图标Replace)
             // 🔥 改动2：传入 context 和 isDebug
             long t2 = System.currentTimeMillis();
             mergeApk(context, templateApk, rawZipFile, projectPath, config, isDebug, enableEncryption);
-            LogCatcher.d("ApkBuilder", "资源合并完成，耗时: " + (System.currentTimeMillis() - t2) + "ms");
+            LogCatcher.d("ApkBuilder", "资源MergeDone，耗时: " + (System.currentTimeMillis() - t2) + "ms");
 
             if (rawZipFile.length() < 1000) {
-                LogCatcher.e("ApkBuilder", "错误: 生成的包体过小 (" + rawZipFile.length() + " bytes)");
-                return "error: 构建失败，生成的包体过小";
+                LogCatcher.e("ApkBuilder", "Error: 生成的包体过小 (" + rawZipFile.length() + " bytes)");
+                return "error: Build failed，生成的包体过小";
             }
 
             // 4. ZipAlign
@@ -154,39 +154,39 @@ public class ApkBuilder {
             long t3 = System.currentTimeMillis();
             try {
                 ZipAligner.align(rawZipFile, alignedZipFile);
-                LogCatcher.d("ApkBuilder", "ZipAlign 完成，耗时: " + (System.currentTimeMillis() - t3) + "ms");
+                LogCatcher.d("ApkBuilder", "ZipAlign Done，耗时: " + (System.currentTimeMillis() - t3) + "ms");
             } catch (Exception e) {
                 LogCatcher.e("ApkBuilder", "ZipAlign 失败", e);
-                return "error: 对齐失败 - " + e.getMessage();
+                return "error: Align失败 - " + e.getMessage();
             }
 
-            LogCatcher.i("ApkBuilder", ">> 正在签名...");
+            LogCatcher.i("ApkBuilder", ">> Signing......");
 
             String finalKeyPath;
             String finalStorePass;
             String finalAlias;
             String finalKeyPass;
 
-            // 检查是否传入了有效的自定义签名文件
+            // 检查YesNo传入了有效的CustomSignFile
             if (customKeyPath != null && !customKeyPath.isEmpty() && new File(customKeyPath).exists()) {
-                LogCatcher.i("ApkBuilder", "使用 webapp.json 指定的签名: " + new File(customKeyPath).getName());
-                LogCatcher.d("ApkBuilder", "  - 路径: " + customKeyPath);
+                LogCatcher.i("ApkBuilder", "使用 webapp.json 指定的Sign: " + new File(customKeyPath).getName());
+                LogCatcher.d("ApkBuilder", "  - Path: " + customKeyPath);
                 LogCatcher.d("ApkBuilder", "  - 别名: " + customAlias);
                 finalKeyPath = customKeyPath;
                 finalStorePass = customStorePass;
                 finalAlias = customAlias;
                 finalKeyPass = customKeyPass;
             } else {
-                // 如果没有配置，或者文件不存在，使用默认 Debug 签名
+                // 如果没有配置，或者File不存在，使用默认 Debug Sign
                 if (customKeyPath != null && !customKeyPath.isEmpty()) {
-                    LogCatcher.w("ApkBuilder", "警告: 自定义签名文件不存在 (" + customKeyPath + ")，将回退到默认签名。");
+                    LogCatcher.w("ApkBuilder", "Warning: CustomSignFile不存在 (" + customKeyPath + ")，将回退到默认Sign。");
                 }
-                LogCatcher.i("ApkBuilder", "使用默认 WebIDE Debug 签名");
+                LogCatcher.i("ApkBuilder", "使用默认 WebIDE Debug Sign");
 
                 String signaturePath = new File(mRootDir, "WebIDE.jks").getAbsolutePath();
                 File keyFile = new File(signaturePath);
                 if (!keyFile.exists()) {
-                    LogCatcher.d("ApkBuilder", "释放默认签名文件到: " + signaturePath);
+                    LogCatcher.d("ApkBuilder", "释放默认SignFile到: " + signaturePath);
                     File internalKey = new File(context.getFilesDir(), "WebIDE.jks");
                     if (!internalKey.exists()) copyAssetFile(context, "WebIDE.jks", internalKey);
                     signaturePath = internalKey.getAbsolutePath();
@@ -207,24 +207,24 @@ public class ApkBuilder {
                     alignedZipFile.getAbsolutePath(),
                     finalApkFile.getAbsolutePath()
             );
-            LogCatcher.d("ApkBuilder", "签名操作耗时: " + (System.currentTimeMillis() - t4) + "ms");
+            LogCatcher.d("ApkBuilder", "Sign操作耗时: " + (System.currentTimeMillis() - t4) + "ms");
 
-            // 清理临时文件
-            LogCatcher.d("ApkBuilder", "清理临时文件...");
+            // 清理临时File
+            LogCatcher.d("ApkBuilder", "清理临时File...");
             rawZipFile.delete();
             alignedZipFile.delete();
 
             if (signResult && finalApkFile.length() > 0) {
-                LogCatcher.i("ApkBuilder", "构建成功: " + finalApkFile.getAbsolutePath());
-                LogCatcher.d("ApkBuilder", "最终文件大小: " + finalApkFile.length() + " bytes");
+                LogCatcher.i("ApkBuilder", "Build successful: " + finalApkFile.getAbsolutePath());
+                LogCatcher.d("ApkBuilder", "最终FileSize: " + finalApkFile.length() + " bytes");
                 return finalApkFile.getAbsolutePath();
             } else {
-                LogCatcher.e("ApkBuilder", "签名失败 (结果: " + signResult + ", 文件大小: " + finalApkFile.length() + ")");
-                return "error: 签名失败 (请检查 webapp.json 中的密码/别名是否正确)";
+                LogCatcher.e("ApkBuilder", "Sign失败 (结果: " + signResult + ", FileSize: " + finalApkFile.length() + ")");
+                return "error: Sign失败 (请检查 webapp.json 中的Password/别名YesNo正确)";
             }
 
         } catch (Exception e) {
-            LogCatcher.e("ApkBuilder", "构建崩溃", e);
+            LogCatcher.e("ApkBuilder", "Build崩溃", e);
             return "error: " + e.getMessage();
         }
     }
@@ -252,15 +252,15 @@ public class ApkBuilder {
                 if (name.startsWith("META-INF/")) continue;
                 if (name.startsWith("assets/")) continue;
 
-                // --- 1. 处理 Manifest (修改包名、权限) ---
+                // --- 1. matches理 Manifest (修改Package Name、Permission) ---
                 if (name.equals("AndroidManifest.xml")) {
                     processManifest(zipFile, entry, zos, config);
                     continue;
                 }
 
-                // --- 2. 处理图标替换 ---
+                // --- 2. matches理图标Replace ---
                 if (config.iconPath != null && (name.equals(ICON_RES_1) || name.equals(ICON_RES_2))) {
-                    LogCatcher.d("ApkBuilder", "正在替换图标: " + name);
+                    LogCatcher.d("ApkBuilder", "正在Replace图标: " + name);
                     ZipEntry iconEntry = new ZipEntry(name);
                     zos.putNextEntry(iconEntry);
                     try (FileInputStream fis = new FileInputStream(new File(config.iconPath))) {
@@ -270,7 +270,7 @@ public class ApkBuilder {
                     continue;
                 }
 
-                // --- 3. 普通文件拷贝 ---
+                // --- 3. 普通File拷贝 ---
                 ZipEntry newEntry = new ZipEntry(name);
                 zos.putNextEntry(newEntry);
                 try (InputStream is = zipFile.getInputStream(entry)) {
@@ -291,7 +291,7 @@ public class ApkBuilder {
                     zos.closeEntry();
                     LogCatcher.d("ApkBuilder", "注入成功: assets/eruda.min.js");
                 } catch (Exception e) {
-                    LogCatcher.w("ApkBuilder", "注入 eruda 失败 (可能 IDE assets 中缺少文件): " + e.getMessage());
+                    LogCatcher.w("ApkBuilder", "注入 eruda 失败 (可能 IDE assets 中缺少File): " + e.getMessage());
                 }
             }
 
@@ -302,10 +302,10 @@ public class ApkBuilder {
                 addProjectFilesRecursively(zos, userAssetsDir, "assets", isDebug, enableEncryption);
             }
 
-            // C. 将 webapp.json 配置文件打包到 assets 目录
+            // C. 将 webapp.json 配置File打包到 assets 目录
             File configFile = new File(projectPath, "webapp.json");
             if (configFile.exists()) {
-                LogCatcher.i("ApkBuilder", "正在打包配置文件: webapp.json");
+                LogCatcher.i("ApkBuilder", "Packaging...配置File: webapp.json");
                 try (FileInputStream fis = new FileInputStream(configFile)) {
                     ZipEntry configEntry = new ZipEntry("assets/webapp.json");
                     zos.putNextEntry(configEntry);
@@ -313,7 +313,7 @@ public class ApkBuilder {
                     zos.closeEntry();
                 }
             } else {
-                LogCatcher.w("ApkBuilder", "未找到 webapp.json 配置文件");
+                LogCatcher.w("ApkBuilder", "未找到 webapp.json 配置File");
             }
 
         } finally {
@@ -323,7 +323,7 @@ public class ApkBuilder {
     }
 
     /**
-     * Manifest 处理逻辑：包名修改、版本修改、权限修改
+     * Manifest matches理逻辑：Package Name修改、Version修改、Permission修改
      */
     private static void processManifest(ZipFile zipFile, ZipEntry entry, ZipOutputStream zos, AppConfig config) throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -338,7 +338,7 @@ public class ApkBuilder {
         }
 
         try {
-            // 1. 基础属性修改
+            // 1. 基础Properties修改
             ApkXmlEditor.setXmlPaht(tempManifest.getAbsolutePath());
             ApkXmlEditor.setAppName(config.appName);
             ApkXmlEditor.setAppPack(config.appPackage);
@@ -350,9 +350,9 @@ public class ApkBuilder {
             ApkXmlEditor.setAppbname(config.versionName);
             ApkXmlEditor.operation();
 
-            // 2. 权限修改 (使用 PermissionEditor)
+            // 2. Permission修改 (使用 PermissionEditor)
             if (config.permissions != null && !config.permissions.isEmpty()) {
-                LogCatcher.i("ApkBuilder", "正在添加权限: " + config.permissions.size() + " 个");
+                LogCatcher.i("ApkBuilder", "正在添加Permission: " + config.permissions.size() + " 个");
                 for (String perm : config.permissions) {
                     setPermission(tempManifest.getAbsolutePath(), perm, false); // false = add
                 }
@@ -361,22 +361,22 @@ public class ApkBuilder {
             // 3. 移除 testOnly 标志
             //removeTestOnly(tempManifest);
 
-            // 4. AXML 字符串池修正 (解决包名变更导致的 Provider/Class 问题)
+            // 4. AXML 字符串池修正 (解决Package Name变更导致的 Provider/Class 问题)
             if (!config.appPackage.equals(OLD_PACKAGE_NAME)) {
                 Map<String, String> replacements = new HashMap<>();
                 replacements.put(OLD_PACKAGE_NAME + ".androidx-startup", config.appPackage + ".androidx-startup");
                 replacements.put(OLD_PACKAGE_NAME + ".fileprovider", config.appPackage + ".fileprovider");
                 replacements.put(".MainActivity", OLD_PACKAGE_NAME + ".MainActivity");
-// 解决 INSTALL_FAILED_DUPLICATE_PERMISSION 错误
-                // 将 com.web.webapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION 替换为 新包名.DYNAMIC...
+// 解决 INSTALL_FAILED_DUPLICATE_PERMISSION Error
+                // 将 com.web.webapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION Replace为 新Package Name.DYNAMIC...
                 replacements.put(OLD_PACKAGE_NAME + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
                         config.appPackage + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION");
 
                 ManifestStringReplacer.batchReplaceStringInAXML(tempManifest, replacements);
             }
 
-            // 5. 【新增】处理 Provider 授权冲突
-            LogCatcher.i("ApkBuilder", "正在处理 Provider 授权冲突...");
+            // 5. 【Added】matches理 Provider 授权Conflict
+            LogCatcher.i("ApkBuilder", "正在matches理 Provider 授权Conflict...");
             // 注意：因为我没有 ProviderAuthReplacer 的源码，这里保留你原有的调用，如果报错请根据实际情况调整
             ProviderAuthReplacer.replaceProviderAuthorities(tempManifest, OLD_PACKAGE_NAME, config.appPackage);
             ProviderAuthReplacer.fixProviderConflicts(tempManifest, config.appPackage);
@@ -395,7 +395,7 @@ public class ApkBuilder {
     }
 
     /**
-     * 使用 PermissionEditor 修改权限
+     * 使用 PermissionEditor 修改Permission
      */
     public static void setPermission(String path, String permission, boolean remove) {
         try {
@@ -416,11 +416,11 @@ public class ApkBuilder {
             doc.build(new FileOutputStream(file));
             doc.release();
         } catch (Exception e) {
-            LogCatcher.e("ApkBuilder", "权限修改失败: " + permission, e);
+            LogCatcher.e("ApkBuilder", "Permission修改失败: " + permission, e);
         }
     }
 
-    // --- 🔥 改动6：修改递归方法以支持 HTML 注入，其他文件保持原样 ---
+    // --- 🔥 改动6：修改递归方法以支持 HTML 注入，其他File保持原样 ---
 
     private static void addProjectFilesRecursively(ZipOutputStream zos, File file, String zipPath, boolean isDebug, boolean enableEncryption) {
         if (file.isDirectory()) {
@@ -450,14 +450,14 @@ public class ApkBuilder {
                     ZipEntry newEntry = new ZipEntry(zipPath);
                     zos.putNextEntry(newEntry);
 
-                    // 🔥 只有在 (Debug模式) 且 (是HTML文件) 时，才拦截修改内容
+                    // 🔥 只有在 (Debug模式) 且 (YesHTMLFile) 时，才拦截修改内容
                     if (isDebug && (file.getName().endsWith(".html") || file.getName().endsWith(".htm"))) {
                         LogCatcher.d("ApkBuilder", "📄 打包 HTML (含注入): " + zipPath);
-                        // 读取原文件 -> 插入代码 -> 写入Zip
+                        // 读取原File -> 插入代码 -> 写入Zip
                         injectScriptToHtml(file, zos);
                     } else {
-                        LogCatcher.d("ApkBuilder", "📄 打包文件: " + zipPath);
-                        // ⚠️ 这是你原本的逻辑，绝对保留，保证 css/js/img 不会丢失
+                        LogCatcher.d("ApkBuilder", "📄 打包File: " + zipPath);
+                        // ⚠️ 这Yes你原本的逻辑，绝对保留，保证 css/js/img 不会丢失
                         try (FileInputStream fis = new FileInputStream(file)) {
                             copyStream(fis, zos);
                         }
@@ -466,7 +466,7 @@ public class ApkBuilder {
                     zos.closeEntry();
                 }
             } catch (IOException e) {
-                LogCatcher.e("ApkBuilder", "❌ 文件打包失败: " + zipPath, e);
+                LogCatcher.e("ApkBuilder", "❌ File打包失败: " + zipPath, e);
                 e.printStackTrace();
             }
         }
@@ -486,9 +486,9 @@ public class ApkBuilder {
         return bytes;
     }
 
-    // 🔥 改动7：新增 HTML 注入辅助方法
+    // 🔥 改动7：Added HTML 注入辅助方法
     private static void injectScriptToHtml(File htmlFile, ZipOutputStream zos) throws IOException {
-        // 读取文件内容
+        // 读取File内容
         byte[] bytes = new byte[(int) htmlFile.length()];
         try (FileInputStream fis = new FileInputStream(htmlFile)) {
             fis.read(bytes);
@@ -498,7 +498,7 @@ public class ApkBuilder {
         // 注入脚本 (引用 assets/eruda.min.js)
         String injection = "<script src=\"eruda.min.js\"></script><script>eruda.init();</script>";
 
-        // 查找 </body> 插入，没有则追加
+        // Find </body> 插入，没有则追加
         if (html.contains("</body>")) {
             html = html.replace("</body>", injection + "\n</body>");
         } else if (html.contains("</BODY>")) {
@@ -511,7 +511,7 @@ public class ApkBuilder {
         zos.write(html.getBytes(StandardCharsets.UTF_8));
     }
 
-    // --- 以下全是原有的辅助方法，未动 ---
+    // --- 以下全Yes原有的辅助方法，未动 ---
 
     private static void copyAsStored(ZipFile zipFile, ZipEntry entry, ZipOutputStream zos) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -582,7 +582,7 @@ public class ApkBuilder {
     }
 
     // ==================================================================================
-    //   AXML 字符串池批量替换器 (保持原样)
+    //   AXML 字符串池批量Replace器 (保持原样)
     // ==================================================================================
 
     private static class ManifestStringReplacer {

@@ -46,13 +46,13 @@ import com.web.webide.core.utils.LogCatcher
 import com.web.webide.core.utils.ThemeState
 
 // ============================================================================
-// 1. 预设主题 (保留原样)
+// 1. Preset Themes (保留原样)
 // ============================================================================
 // ============================================================================
-// 1. 预设主题 (已修复 Scrim 缺失与卡片对比度问题)
+// 1. Preset Themes (已修复 Scrim 缺失与卡片对比度问题)
 // ============================================================================
 
-// 默认 Material 深色 (保留官方微调)
+// 默认 Material Dark (保留官方微调)
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFD0BCFF),
     onPrimary = Color(0xFF381E72),
@@ -91,7 +91,7 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF36343B)
 )
 
-// 默认 Material 浅色
+// 默认 MaterialLight
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF6750A4),
     onPrimary = Color(0xFFFFFFFF),
@@ -130,7 +130,7 @@ private val LightColorScheme = lightColorScheme(
     surfaceContainerHighest = Color(0xFFE6E0E9)
 )
 
-// Catppuccin Mocha 深色 (修复背景与卡片撞色)
+// Catppuccin Mocha Dark (修复背景与卡片撞色)
 private val CatppuccinDarkColorScheme = darkColorScheme(
     primary = Color(0xFFD9B9FF),
     onPrimary = Color(0xFF411B6D),
@@ -169,7 +169,7 @@ private val CatppuccinDarkColorScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF37313D)
 )
 
-// Catppuccin Latte 浅色
+// Catppuccin LatteLight
 private val CatppuccinLightColorScheme = lightColorScheme(
     primary = Color(0xFF714C9F),
     onPrimary = Color(0xFFFFFFFF),
@@ -208,7 +208,7 @@ private val CatppuccinLightColorScheme = lightColorScheme(
     surfaceContainerHighest = Color(0xFFECE3F2)
 )
 
-// Apple 深色 (修复：使用纯黑背景，实现 iOS Grouped 风格)
+// Apple Dark (修复：使用纯黑背景，实现 iOS Grouped 风格)
 private val AppleDarkColorScheme = darkColorScheme(
     primary = Color(0xFF42E355),
     onPrimary = Color(0xFF00390A),
@@ -247,7 +247,7 @@ private val AppleDarkColorScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF1F3721)
 )
 
-// Apple 浅色 (修复：使用灰背景+白卡片，实现 iOS Grouped 风格)
+// AppleLight (修复：使用灰背景+白卡片，实现 iOS Grouped 风格)
 private val AppleLightColorScheme = lightColorScheme(
     primary=Color(0xFF006E1C),
     onPrimary=Color(0xFFFFFFFF),
@@ -684,12 +684,12 @@ fun MyComposeApplicationTheme(
     }
 
     SideEffect {
-        LogCatcher.d("ThemeDebug_Apply", "应用主题中... Monet=${themeState.isMonetEnabled}, Custom=${themeState.isCustomTheme}, 模式=$useDarkTheme, 自定义色=${themeState.customColor.value}")
+        LogCatcher.d("ThemeDebug_Apply", "ApplyTheme中... Monet=${themeState.isMonetEnabled}, Custom=${themeState.isCustomTheme}, 模式=$useDarkTheme, Custom色=${themeState.customColor.value}")
     }
 
     // Determine target color scheme
     val targetColorScheme = if (themeState.isCustomTheme) {
-        LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Custom (用户自定义 - Material Kolor), 颜色: ${themeState.customColor.value}")
+        LogCatcher.i("ThemeDebug_Branch", ">>> 命中Branch: Custom (用户Custom - Material Kolor), 颜色: ${themeState.customColor.value}")
         rememberDynamicColorScheme(
             seedColor = themeState.customColor,
             isDark = useDarkTheme,
@@ -699,11 +699,11 @@ fun MyComposeApplicationTheme(
     } else {
         when {
             themeState.isMonetEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Monet (系统壁纸取色)")
+                LogCatcher.i("ThemeDebug_Branch", ">>> 命中Branch: Monet (系统壁纸取色)")
                 if (useDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             }
             else -> {
-                LogCatcher.i("ThemeDebug_Branch", ">>> 命中分支: Preset (预设主题), Index: ${themeState.selectedThemeIndex}")
+                LogCatcher.i("ThemeDebug_Branch", ">>> 命中Branch: Preset (Preset Themes), Index: ${themeState.selectedThemeIndex}")
                 when (themeState.selectedThemeIndex) {
                     0 -> if (useDarkTheme) CatppuccinDarkColorScheme else CatppuccinLightColorScheme
                     1 -> if (useDarkTheme) AppleDarkColorScheme else AppleLightColorScheme

@@ -77,9 +77,9 @@ import coil.request.ImageRequest
 import com.web.webide.BuildConfig
 import com.web.webide.ui.components.WebIDE_Icon
 
-// --- 1. 数据模型定义 ---
+// --- 1. 数据Model定义 ---
 
-// 开发者
+// On发者
 data class Developer(
     val name: String,
     val role: String,
@@ -90,7 +90,7 @@ data class Developer(
 
 // 2. 感谢名单 (增加 qq 字段)
 data class SpecialThanks(
-    val qq: String,      // 新增：QQ号
+    val qq: String,      // Added：QQ号
     val name: String,
     val title: String,
     val message: String,
@@ -99,7 +99,7 @@ data class SpecialThanks(
 
 // 3. 捐赠名单 (增加 qq 字段)
 data class Donor(
-    val qq: String,      // 新增：QQ号
+    val qq: String,      // Added：QQ号
     val name: String,
     val amount: String,
     val date: String
@@ -144,7 +144,7 @@ fun AboutScreen(navController: NavController) {
 
     // --- 数据源 ---
 
-    // 1. 开发团队
+    // 1. On发团队
     val teamMembers = remember {
         listOf(
             Developer("h465855hgg", "Lead", "Maintainer", Color(0xFF009688), "https://github.com/h465855hgg"),
@@ -170,7 +170,7 @@ fun AboutScreen(navController: NavController) {
                 qq = "2084019782",
                 name = "问心",
                 title = "Special Thanks",
-                message = "感谢WebS的api文档 命名规则.",// 或者是 "Provided naming conventions for WebS API docs."
+                message = "感谢WebS的api文档 命名规则.",// 或者Yes "Provided naming conventions for WebS API docs."
               // url = "https://user.qzone.qq.com/2084019782"
             ),
             SpecialThanks(
@@ -186,10 +186,10 @@ fun AboutScreen(navController: NavController) {
     // 3. 捐赠名单
     val donorList = remember {
         listOf(
-            Donor("2051775505", "・是小浣熊哦・", "¥ 66.66", "2025.12"),
-            Donor("3268208143","肘开（有事电话）","¥ 20.00","2026.1") ,
+            Donor("2051775505", "・Yes小浣熊哦・", "¥ 66.66", "2025.12"),
+            Donor("3268208143","肘On（有事电话）","¥ 20.00","2026.1") ,
             Donor("2957148920","海纳百氚，有容乃大","¥ 23.32","2026.01.05.10:56, 2026.01.12.17:49, 2026.01.18.17:55"),
-            Donor("3658267351","黑桃信息科技","¥ 3.00","2026.01.09.12:41"),
+            Donor("3658267351","黑桃Info科技","¥ 3.00","2026.01.09.12:41"),
             Donor("162145003", "陌璃与鱼","¥ 0.52","2026.02.06.16:52"),
             Donor("2736472509", "李架大王","¥ 3.50","2026.02.06.16:53"),
 Donor("676743748", "doro", "¥ 0.01","2026.02.07.21:09")
@@ -200,7 +200,7 @@ Donor("676743748", "doro", "¥ 0.01","2026.02.07.21:09")
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("关于", fontWeight = FontWeight.SemiBold) },
+                title = { Text("About", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
@@ -224,7 +224,7 @@ Donor("676743748", "doro", "¥ 0.01","2026.02.07.21:09")
             // 1. App 头部
             item { AppHeaderSection() }
 
-            // 2. 开发团队 (Chip 风格)
+            // 2. On发团队 (Chip 风格)
             item {
                 SectionTitle("WebIDE Team")
                 LazyRow(
@@ -274,7 +274,7 @@ Donor("676743748", "doro", "¥ 0.01","2026.02.07.21:09")
                 }
             }
 
-            // 5. 开源协议
+            // 5. On源协议
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionTitle("Licenses")
@@ -289,7 +289,7 @@ Donor("676743748", "doro", "¥ 0.01","2026.02.07.21:09")
                 }
             } else if (libraries.isEmpty()) {
                 item {
-                    Text("暂无信息", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.outline)
+                    Text("暂NoneInfo", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.outline)
                 }
             } else {
                 itemsIndexed(
@@ -346,7 +346,7 @@ private fun getQQAvatar(qq: String): String {
     return "https://q.qlogo.cn/headimg_dl?dst_uin=$qq&spec=640&img_type=jpg"
 }
 
-// 1. 感谢名单卡片 (MD3 风格：左侧头像 + 右侧信息)
+// 1. 感谢名单卡片 (MD3 风格：左侧头像 + 右侧Info)
 @Composable
 private fun ThanksCard(item: SpecialThanks) {
     val context = LocalContext.current
@@ -390,7 +390,7 @@ private fun ThanksCard(item: SpecialThanks) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // 文字信息区域
+            // 文字Info区域
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -515,7 +515,7 @@ private fun AuthorNoteCard(onClose: () -> Unit) {
                 Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp).padding(top = 2.dp))
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    "本项目由人类开发者与 AI 协作开发，探索代码生成的无限可能。",
+                    "本项目由人类On发者与 AI 协作On发，探索代码生成的None限可能。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)

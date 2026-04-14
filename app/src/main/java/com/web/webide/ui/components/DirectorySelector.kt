@@ -81,7 +81,7 @@ fun DirectorySelector(
         }
     }
 
-    // 新建文件夹对话框
+    // New Folder对话框
     if (showCreateFolderDialog) {
         CreateFolderDialog(
             currentPath = currentPath,
@@ -91,7 +91,7 @@ fun DirectorySelector(
                     val newFolder = File(currentPath, newFolderName)
                     if (newFolder.exists()) {
                          } else if (newFolder.mkdir()) {
-                          // 刷新列表 - 通过切换到新创建的文件夹再返回来触发重组
+                          // Refresh列表 - 通过切换到新创建的File夹再返回来触发重组
                         val tempPath = currentPath
                         currentPath = newFolder.absolutePath
                         currentPath = tempPath
@@ -126,12 +126,12 @@ fun DirectorySelector(
                         fontWeight = FontWeight.Bold
                     )
                     Row {
-                        // 新建文件夹按钮
+                        // New Folder按钮
                         IconButton(onClick = { showCreateFolderDialog = true }) {
-                            Icon(Icons.Default.CreateNewFolder, contentDescription = "新建文件夹")
+                            Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder")
                         }
                         IconButton(onClick = onDismissRequest) {
-                            Icon(Icons.Default.Close, contentDescription = "关闭")
+                            Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     }
                 }
@@ -258,7 +258,7 @@ fun DirectorySelector(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismissRequest) {
-                        Text("取消")
+                        Text("Cancel")
                     }
                     Spacer(Modifier.width(8.dp))
                     Button(onClick = { onPathSelected(currentPath) }) {
@@ -284,7 +284,7 @@ private fun FastScrollbar(
     var dragOffset by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
 
-    // 计算滑块位置和大小
+    // 计算滑块Location和Size
     val layoutInfo = listState.layoutInfo
     val totalItems = layoutInfo.totalItemsCount
     val visibleItems = layoutInfo.visibleItemsInfo.size
@@ -294,7 +294,7 @@ private fun FastScrollbar(
 
     val thumbHeightDp = 48.dp
     
-    // 动态计算滑块位置
+    // 动态计算滑块Location
     val scrollProgress = remember(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, totalItems, visibleItems, isDragging) {
         if (isDragging) {
             null
@@ -316,7 +316,7 @@ private fun FastScrollbar(
         val thumbHeightPx = with(density) { thumbHeightDp.toPx() }
         val availableHeight = maxHeight - thumbHeightPx
         
-        // 计算滑块的Y位置
+        // 计算滑块的YLocation
         val thumbOffsetY = if (isDragging) {
             dragOffset.coerceIn(0f, availableHeight)
         } else {
@@ -422,11 +422,11 @@ private fun CreateFolderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建文件夹") },
+        title = { Text("New Folder") },
         text = {
             Column {
                 Text(
-                    text = "位置: $currentPath",
+                    text = "Location: $currentPath",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -437,12 +437,12 @@ private fun CreateFolderDialog(
                         folderName = it
                         errorMessage = when {
                             it.isEmpty() -> null
-                            it.contains('/') || it.contains('\\') -> "文件夹名称不能包含 / 或 \\"
-                            it == "." || it == ".." -> "无效的文件夹名称"
+                            it.contains('/') || it.contains('\\') -> "File夹Name不能包含 / 或 \\"
+                            it == "." || it == ".." -> "None效的File夹Name"
                             else -> null
                         }
                     },
-                    label = { Text("文件夹名称") },
+                    label = { Text("File夹Name") },
                     isError = errorMessage != null,
                     supportingText = errorMessage?.let { { Text(it) } },
                     singleLine = true,
@@ -464,7 +464,7 @@ private fun CreateFolderDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text("Cancel")
             }
         }
     )

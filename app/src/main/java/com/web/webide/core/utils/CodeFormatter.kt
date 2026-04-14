@@ -33,7 +33,7 @@ object CodeFormatter {
             when (extension.lowercase()) {
                 "html", "htm" -> formatHtml(code, indentSize)
                 "json" -> formatJson(code, indentSize)
-                "css" -> formatCss(code, indentSize) // CSS 简单处理暂时略过动态缩进
+                "css" -> formatCss(code, indentSize) // CSS 简单matches理暂时略过动态缩进
                 "js" -> formatJs(code, indentSize)
                 else -> code
             }
@@ -61,7 +61,7 @@ object CodeFormatter {
     }
 
     private fun formatCss(code: String, indentSize: Int = 4): String {
-        // 构建缩进字符串
+        // Build缩进字符串
         val indent = " ".repeat(indentSize)
         return code
             .replace(Regex("\\s*\\{\\s*"), " {\n$indent")

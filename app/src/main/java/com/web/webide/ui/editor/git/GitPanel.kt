@@ -173,12 +173,12 @@ fun GitToolbarCompact(
             }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
-                    text = { Text("刷新") },
+                    text = { Text("Refresh") },
                     leadingIcon = { Icon(Icons.Default.Refresh, null) },
                     onClick = { onRefreshClick(); showMenu = false }
                 )
                 DropdownMenuItem(
-                    text = { Text("设置") },
+                    text = { Text("Settings") },
                     leadingIcon = { Icon(Icons.Default.Settings, null) },
                     onClick = { onSettingsClick(); showMenu = false }
                 )
@@ -221,7 +221,7 @@ fun GitChangesPageCompact(
             if (viewModel.changedFiles.isEmpty()) {
                 item {
                     Box(Modifier.fillParentMaxSize().height(200.dp), contentAlignment = Alignment.Center) {
-                        Text("无文件变更", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                        Text("NoneFile变更", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             } else {
@@ -245,7 +245,7 @@ fun GitChangesPageCompact(
                 OutlinedTextField(
                     value = message,
                     onValueChange = { message = it },
-                    placeholder = { Text("提交信息...") },
+                    placeholder = { Text("Commit Message...") },
                     modifier = Modifier.fillMaxWidth(),//.height(80.dp),
                     textStyle = MaterialTheme.typography.bodyMedium
                 )
@@ -254,14 +254,14 @@ fun GitChangesPageCompact(
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
                     Checkbox(checked = pushAfter, onCheckedChange = { pushAfter = it }, modifier = Modifier.scale(0.8f))
-                    Text("推送", style = MaterialTheme.typography.labelMedium)
+                    Text("Push", style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.weight(1f))
                     Button(
                         onClick = { viewModel.commit(message, pushAfter); message = "" },
                         enabled = viewModel.changedFiles.isNotEmpty() && message.isNotBlank(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                         modifier = Modifier.height(36.dp)
-                    ) { Text("提交") }
+                    ) { Text("Commit") }
                 }
             }
         }
@@ -308,8 +308,8 @@ fun EmptyGitState(onInit: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Default.Source, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
         Spacer(Modifier.height(16.dp))
-        Text("当前文件夹不是 Git 仓库", color = MaterialTheme.colorScheme.outline)
-        Button(onClick = onInit, modifier = Modifier.padding(top = 16.dp)) { Text("初始化仓库") }
+        Text("当前File夹不Yes Git 仓库", color = MaterialTheme.colorScheme.outline)
+        Button(onClick = onInit, modifier = Modifier.padding(top = 16.dp)) { Text("Init Repository") }
     }
 }
 
@@ -394,7 +394,7 @@ fun ConfigDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
                         singleLine = true
                     )
                     Text(
-                        "注意：GitHub/Gitee 请使用 Personal Access Token，不要使用登录密码。",
+                        "注意：GitHub/Gitee 请使用 Personal Access Token，不要使用登录Password。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -474,7 +474,7 @@ fun ConfigDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
                         },
                         enabled = !isTesting
                     ) {
-                        Text("保存配置")
+                        Text("Save配置")
                     }
                 }
             }
@@ -483,7 +483,7 @@ fun ConfigDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
             TextButton(onClick = {
                 viewModel.testConnectionResult = null
                 onDismiss()
-            }) { Text("取消") }
+            }) { Text("Cancel") }
         }
     )
 }
@@ -518,7 +518,7 @@ fun BranchListDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.AutoMirrored.Filled.CallSplit, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("分支管理")
+                Text("Branch管理")
             }
         },
         text = {
@@ -534,7 +534,7 @@ fun BranchListDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
                     ) {
                         Icon(Icons.Default.Add, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("新建分支")
+                        Text("New Branch")
                     }
 
                     OutlinedButton(
@@ -574,7 +574,7 @@ fun BranchListDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
 
@@ -624,15 +624,15 @@ fun NewBranchDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建分支") },
+        title = { Text("New Branch") },
         text = {
             Column {
-                Text("从当前 HEAD 创建新分支", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text("从当前 HEAD 创建新Branch", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("分支名称") },
+                    label = { Text("BranchName") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -641,7 +641,7 @@ fun NewBranchDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
         confirmButton = {
             Button(onClick = { viewModel.createBranch(name); onDismiss() }, enabled = name.isNotBlank()) { Text("创建并切换") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -653,12 +653,12 @@ fun NewTagDialog(viewModel: GitViewModel, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("新建标签") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, label = { Text("标签名 (v1.0)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(name, { name = it }, label = { Text("标Sign (v1.0)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(msg, { msg = it }, label = { Text("说明") }, modifier = Modifier.fillMaxWidth())
         }},
         confirmButton = {
             Button(onClick = { viewModel.createTag(name, msg); onDismiss() }, enabled = name.isNotBlank()) { Text("创建") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

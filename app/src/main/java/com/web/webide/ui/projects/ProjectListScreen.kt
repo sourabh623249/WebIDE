@@ -68,9 +68,9 @@ import com.web.webide.safeNavigate
 private const val PREFS_NAME = "project_prefs"
 private const val KEY_PINNED_PROJECTS = "pinned_projects"
 private const val KEY_SORT_ORDER = "sort_order"
-private const val KEY_SEARCH_HISTORY = "search_history" // 新增：搜索记录Key
+private const val KEY_SEARCH_HISTORY = "search_history" // Added：Search记录Key
 
-// --- 数据模型 ---
+// --- 数据Model ---
 data class ProjectItem(
     val name: String,
     val lastModified: Long
@@ -78,10 +78,10 @@ data class ProjectItem(
 
 // --- 排序规则枚举 ---
 enum class SortOrder(val displayName: String) {
-    NAME_ASC("名称 (A-Z)"),
-    NAME_DESC("名称 (Z-A)"),
-    DATE_NEWEST("修改时间 (最新)"),
-    DATE_OLDEST("修改时间 (最早)");
+    NAME_ASC("Name (A-Z)"),
+    NAME_DESC("Name (Z-A)"),
+    DATE_NEWEST("Modified (最新)"),
+    DATE_OLDEST("Modified (最早)");
 
     companion object {
         fun fromOrdinal(ordinal: Int): SortOrder = entries.getOrElse(ordinal) { NAME_ASC }
@@ -102,8 +102,8 @@ fun ProjectListScreen(navController: NavController) {
     var pinnedProjects by remember { mutableStateOf<Set<String>>(emptySet()) }
     var currentSortOrder by remember { mutableStateOf(SortOrder.NAME_ASC) }
 
-    // --- 搜索相关状态 ---
-    var isSearchActive by remember { mutableStateOf(false) } // 是否处于搜索模式
+    // --- Search相Off状态 ---
+    var isSearchActive by remember { mutableStateOf(false) } // YesNomatches于Search模式
     var searchQuery by remember { mutableStateOf("") }
     var searchHistory by remember { mutableStateOf<List<String>>(emptyList()) }
 
@@ -116,10 +116,10 @@ fun ProjectListScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
-    // FAB 逻辑：搜索时不显示，非搜索模式下根据滑动显示
+    // FAB 逻辑：Search时不显示，非Search模式下根据滑动显示
     val isFabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
 
-    // 按下物理返回键时，如果是搜索模式，则退出搜索模式
+    // 按下物理返回键时，如果YesSearch模式，则退出Search模式
     BackHandler(enabled = isSearchActive) {
         isSearchActive = false
         searchQuery = ""
@@ -133,7 +133,7 @@ fun ProjectListScreen(navController: NavController) {
             .take(10)   // 只保留最近10条
 
         searchHistory = newHistory
-        // 简单持久化：用换行符分隔保存 (假设项目名不含换行符)
+        // 简单持久化：用换行符分隔Save (假设项目名不含换行符)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit { putString(KEY_SEARCH_HISTORY, newHistory.joinToString("\n")) }
     }
@@ -153,7 +153,7 @@ fun ProjectListScreen(navController: NavController) {
         }
     }
 
-    // --- 列表刷新逻辑 ---
+    // --- 列表Refresh逻辑 ---
     fun refreshList() {
         scope.launch(Dispatchers.IO) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -217,9 +217,9 @@ fun ProjectListScreen(navController: NavController) {
             withContext(Dispatchers.Main) {
                 if (success) {
                     if (pinnedProjects.contains(folderName)) togglePin(folderName) else refreshList()
-                    snackbarHostState.showSnackbar("项目已删除")
+                    snackbarHostState.showSnackbar("项目已Delete")
                 } else {
-                    snackbarHostState.showSnackbar("删除失败，请检查权限")
+                    snackbarHostState.showSnackbar("Delete失败，请检查Permission")
                 }
             }
         }
@@ -232,7 +232,7 @@ fun ProjectListScreen(navController: NavController) {
     }
 
     // --- 计算当前显示的列表 ---
-    // 如果在搜索模式且有输入，过滤列表；否则显示完整排序列表
+    // 如果在Search模式且有输入，过滤列表；No则显示完整排序列表
     val displayList = remember(projectList, isSearchActive, searchQuery) {
         if (isSearchActive && searchQuery.isNotEmpty()) {
             projectList.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -257,13 +257,13 @@ fun ProjectListScreen(navController: NavController) {
                 label = "TopBarAnimation"
             ) { active ->
                 if (active) {
-                    // --- 搜索模式 TopBar ---
+                    // --- Search模式 TopBar ---
                     TopAppBar(
                         title = {
                             TextField(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
-                                placeholder = { Text("搜索项目...", style = MaterialTheme.typography.bodyLarge) },
+                                placeholder = { Text("Search项目...", style = MaterialTheme.typography.bodyLarge) },
                                 singleLine = true,
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
@@ -285,7 +285,7 @@ fun ProjectListScreen(navController: NavController) {
                                 isSearchActive = false
                                 searchQuery = ""
                             }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "退出搜索")
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "退出Search")
                             }
                         },
                         actions = {
@@ -302,9 +302,9 @@ fun ProjectListScreen(navController: NavController) {
                         title = { Text("Web Projects") },
                         scrollBehavior = scrollBehavior,
                         actions = {
-                            // 搜索按钮
+                            // Search按钮
                             IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, "搜索")
+                                Icon(Icons.Default.Search, "Search")
                             }
                             // 排序按钮
                             Box {
@@ -337,7 +337,7 @@ fun ProjectListScreen(navController: NavController) {
                                 }
                             }
                             IconButton(onClick = { navController.safeNavigate("settings") }) {
-                                Icon(Icons.Default.Settings, "设置")
+                                Icon(Icons.Default.Settings, "Settings")
                             }
                         }
                     )
@@ -345,7 +345,7 @@ fun ProjectListScreen(navController: NavController) {
             }
         },
         floatingActionButton = {
-            // 搜索时不显示 FAB
+            // Search时不显示 FAB
             AnimatedVisibility(
                 visible = !isSearchActive,
                 enter = fadeIn(),
@@ -353,8 +353,8 @@ fun ProjectListScreen(navController: NavController) {
             ) {
                 ExtendedFloatingActionButton(
                     onClick = { navController.safeNavigate("new_project") },
-                    icon = { Icon(Icons.Default.Add, "新建项目") },
-                    text = { Text("新建项目") },
+                    icon = { Icon(Icons.Default.Add, "New Project") },
+                    text = { Text("New Project") },
                     expanded = isFabExpanded
                 )
             }
@@ -367,11 +367,11 @@ fun ProjectListScreen(navController: NavController) {
                 transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(300))) },
                 label = "ContentAnim"
             ) { isHistory ->
-                // --- 场景 1：搜索模式且无输入 -> 显示历史记录 ---
+                // --- 场景 1：Search模式且None输入 -> 显示历史记录 ---
                 if (isHistory) {
                 if (searchHistory.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("暂无搜索记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("暂NoneSearch记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     LazyColumn(
@@ -380,7 +380,7 @@ fun ProjectListScreen(navController: NavController) {
                     ) {
                         item {
                             Text(
-                                "搜索历史",
+                                "Search历史",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -391,8 +391,8 @@ fun ProjectListScreen(navController: NavController) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        searchQuery = historyItem // 填充搜索
-                                        // 可选：点击历史立即触发搜索并移动到历史首位
+                                        searchQuery = historyItem // 填充Search
+                                        // 可选：点击历史立即触发Search并移动到历史首位
                                         saveSearchHistory(historyItem)
                                     }
                                     .padding(vertical = 12.dp),
@@ -415,7 +415,7 @@ fun ProjectListScreen(navController: NavController) {
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
-                                        contentDescription = "删除记录",
+                                        contentDescription = "Delete记录",
                                         modifier = Modifier.size(16.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -438,7 +438,7 @@ fun ProjectListScreen(navController: NavController) {
                     }
                 }
             }
-            // --- 场景 2：显示项目列表 (常规 或 搜索过滤中) ---
+            // --- 场景 2：显示Project List (常规 或 Search过滤中) ---
             else {
                 if (displayList.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -455,7 +455,7 @@ fun ProjectListScreen(navController: NavController) {
                             start = 16.dp,
                             top = 16.dp,
                             end = 16.dp,
-                            bottom = if (isSearchActive) 16.dp else 100.dp // 搜索时不需要底部留白给 FAB
+                            bottom = if (isSearchActive) 16.dp else 100.dp // Search时不需要底部留白给 FAB
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -470,7 +470,7 @@ fun ProjectListScreen(navController: NavController) {
                                 folderName = item.name,
                                 isPinned = pinnedProjects.contains(item.name),
                                 onClick = {
-                                    // 点击项目时，如果需要保存此次搜索记录，可以在这里调用 saveSearchHistory(searchQuery)
+                                    // 点击项目时，如果需要Save此次Search记录，可以在这里调用 saveSearchHistory(searchQuery)
                                     navController.safeNavigate("code_edit/${item.name}")
                                 },
                                 onTogglePin = { togglePin(item.name) },
@@ -490,8 +490,8 @@ fun ProjectListScreen(navController: NavController) {
         if (showDeleteDialog && projectToDelete != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
-                title = { Text("删除项目") },
-                text = { Text("确定要删除 \"$projectToDelete\" 吗？此操作无法撤销。") },
+                title = { Text("Delete项目") },
+                text = { Text("OK要Delete \"$projectToDelete\" 吗？此操作None法Undo。") },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -499,17 +499,17 @@ fun ProjectListScreen(navController: NavController) {
                             showDeleteDialog = false
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) { Text("删除") }
+                    ) { Text("Delete") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) { Text("取消") }
+                    TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
                 }
             )
         }
     }
 }
 
-// ... (ProjectCard 组件代码与上一次回复完全相同，无需更改) ...
+// ... (ProjectCard 组件代码与上一次回复完全相同，None需更改) ...
 @Composable
 fun ProjectCard(
     modifier: Modifier = Modifier,
@@ -554,7 +554,7 @@ fun ProjectCard(
 
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, "更多选项")
+                        Icon(Icons.Default.MoreVert, "More选项")
                     }
 
                     DropdownMenu(
@@ -562,7 +562,7 @@ fun ProjectCard(
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text(if (isPinned) "取消置顶" else "置顶项目") },
+                            text = { Text(if (isPinned) "Cancel置顶" else "置顶项目") },
                             leadingIcon = {
                                 Icon(if (isPinned) Icons.Default.PushPin else Icons.Default.VerticalAlignTop, null)
                             },
@@ -573,7 +573,7 @@ fun ProjectCard(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text("删除项目", color = MaterialTheme.colorScheme.error) },
+                            text = { Text("Delete项目", color = MaterialTheme.colorScheme.error) },
                             leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
                             onClick = {
                                 menuExpanded = false

@@ -93,7 +93,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.core.content.edit
 
-// 构建结果状态
+// Build结果状态
 sealed class BuildResultState {
     data class Finished(val message: String, val apkPath: String? = null) : BuildResultState()
 }
@@ -118,7 +118,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
         gitViewModel.initialize(projectPath)
     }
 
-    // 1. 定义状态来持有自动保存的时间间隔
+    // 1. 定义状态来持有自动Save的时间间隔
     var autoSaveInterval by remember { mutableLongStateOf(0L) }
     // 🔥 优化：在初始化时直接读取 SharedPreferences，避免闪烁
     var isAiEnabled by remember {
@@ -126,7 +126,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
         mutableStateOf(editorPrefs.getBoolean("editor_ai_enabled", true))
     }
     val lifecycleOwner = LocalLifecycleOwner.current
-    // 2. 监听生命周期：当从设置页返回时，重新读取 SharedPreferences
+    // 2. 监听生命周期：当从Settings页返回时，重新读取 SharedPreferences
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -144,29 +144,29 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     }
     LaunchedEffect(projectPath) {
         viewModel.loadInitialFile(projectPath)
-        // 这样即使之后跳转终端不传参，AlpineManager 也能知道当前是在哪个项目
+        // 这样即使之后跳转Terminal不传参，AlpineManager 也能知道当前Yes在哪个项目
         AlpineManager.currentProject = projectPath
     }
     LaunchedEffect(autoSaveInterval) {
         if (autoSaveInterval > 0) {
             while (isActive) {
                 delay(autoSaveInterval)
-                // 执行自动保存
+                // 执行自动Save
                 viewModel.autoSaveProject(context, projectPath)
 
-                // ➡️ 顺便刷新 Git 状态！(实现实时更新的关键)
+                // ➡️ 顺便Refresh Git 状态！(实现实时更新的Off键)
                 gitViewModel.refreshAll()
             }
         }
     }
     val focusManager = LocalFocusManager.current
-    // 🔥 进阶：自动检测该项目下是否存在已构建的 APK
+    // 🔥 进阶：自动检测该项目下YesNo存在已Build的 APK
     LaunchedEffect(projectPath) {
-        // 如果 ViewModel 里还没记录（比如刚打开APP），尝试去硬盘找最新的 release 包
+        // 如果 ViewModel 里还没记录（比如刚打OnAPP），尝试去硬盘找最新的 release 包
         if (viewModel.lastBuiltApk == null) {
             val buildDir = File(projectPath, "build")
             if (buildDir.exists() && buildDir.isDirectory) {
-                // 找 build 目录下以 _release.apk 结尾且最新的文件
+                // 找 build 目录下以 _release.apk 结尾且最新的File
                 val lastApk = buildDir.listFiles()
                     ?.filter { it.name.endsWith("_release.apk") }
                     ?.maxByOrNull { it.lastModified() }
@@ -193,13 +193,13 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
 
     // 初始加载进度条状态
     var showInitialLoader by remember { mutableStateOf(!viewModel.hasShownInitialLoader) }
-    // 构建过程中的进度条状态
+    // Build过程中的进度条状态
     var isBuilding by remember { mutableStateOf(false) }
     val hasOpenFiles = viewModel.openFiles.isNotEmpty()
-    // 构建结果状态
+    // Build结果状态
     var buildResult by remember { mutableStateOf<BuildResultState?>(null) }
 
-    // 检测 webapp.json 和 src/main/assets/ 是否同时存在
+    // 检测 webapp.json 和 src/main/assets/ YesNo同时存在
     val hasWebAppConfig = remember(projectPath) {
         val configFile = File(projectPath, "webapp.json")
         val assetsDir = File(projectPath, "src/main/assets")
@@ -270,7 +270,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
     val screenWidth = configuration.screenWidthDp.dp
 
     // 2. 计算动态宽度
-    // 逻辑：如果是平板(宽>600dp)，侧边栏给 400dp；如果是手机，给屏幕宽度的 85%
+    // 逻辑：如果Yes平板(宽>600dp)，侧边栏给 400dp；如果Yes手机，给屏幕宽度的 85%
     val drawerWidth = if (screenWidth > 600.dp) 400.dp else (screenWidth * 0.85f)
 
     DismissibleNavigationDrawer(
@@ -286,12 +286,12 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         modifier = Modifier.width(80.dp) // 固定Rail宽度
                     ) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        // 1. 文件树按钮
+                        // 1. File Tree按钮
                         NavigationRailItem(
                             selected = selectedTab == FILES,
                             onClick = { selectedTab = FILES },
-                            icon = { Icon(Icons.Default.Folder, contentDescription = "文件") },
-                            label = { Text("文件树") }
+                            icon = { Icon(Icons.Default.Folder, contentDescription = "File") },
+                            label = { Text("File Tree") }
                         )
                         // 2. Git 按钮
                         NavigationRailItem(
@@ -306,7 +306,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                     badge = {
                                         if (changeCount > 0) {
                                             Badge {
-                                                // 如果数字太大，显示 99+，否则显示具体数字
+                                                // 如果数字太大，显示 99+，No则显示具体数字
                                                 Text(if(changeCount > 99) "99+" else changeCount.toString())
                                             }
                                         }
@@ -336,7 +336,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         .fillMaxHeight()) {
                         when (selectedTab) {
                             FILES -> {
-                                // 原有的文件管理器
+                                // 原有的File管理器
                                 FileManagerDrawer(
                                     projectPath = projectPath,
                                     activeFile = viewModel.openFiles.getOrNull(viewModel.activeFileIndex)?.file,
@@ -379,7 +379,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                 )
                             }
                             GIT -> {
-                                // 新增的空 Git 面板
+                                // Added的空 Git 面板
                                 GitPanel(
                                     projectPath = projectPath,
                                     viewModel = gitViewModel,
@@ -422,18 +422,18 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                             },
                             actions = {
                                 IconButton(onClick = { viewModel.undo() }) {
-                                    Icon(Icons.AutoMirrored.Filled.Undo, "撤销")
+                                    Icon(Icons.AutoMirrored.Filled.Undo, "Undo")
                                 }
                                 IconButton(onClick = { viewModel.redo() }) {
-                                    Icon(Icons.AutoMirrored.Filled.Redo, "重做")
+                                    Icon(Icons.AutoMirrored.Filled.Redo, "Redo")
                                 }
                                 IconButton(onClick = {
                                     // 🔥 修改：使用一个协程顺序执行
                                     scope.launch {
-                                        // 1. 先保存所有文件 (这是一个 suspend 函数，会等待 IO 完成)
+                                        // 1. 先Save所有File (这Yes一个 suspend 函数，会等待 IO Done)
                                         val success = viewModel.saveAllModifiedFiles(snackbarHostState)
 
-                                        // 2. 保存完成后，再跳转 (Undo 栈不会丢失，因为 Editor 实例没变)
+                                        // 2. SaveDone后，再跳转 (Undo 栈不会丢失，因为 Editor 实例没变)
                                         if (success) {
                                             navController.safeNavigate("preview/$folderName")
                                         }
@@ -443,14 +443,14 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                 }
                                 Box {
                                     IconButton(onClick = { isMoreMenuExpanded = true }) {
-                                        Icon(Icons.Filled.MoreVert, "更多选项")
+                                        Icon(Icons.Filled.MoreVert, "More选项")
                                     }
                                     DropdownMenu(
                                         expanded = isMoreMenuExpanded,
                                         onDismissRequest = { isMoreMenuExpanded = false }
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("全部保存") },
+                                            text = { Text("全部Save") },
                                             onClick = {
                                                 scope.launch {
                                                     viewModel.saveAllModifiedFiles(snackbarHostState)
@@ -460,7 +460,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                             }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text(if (isOpenSearch) "关闭搜索" else "搜索") },
+                                            text = { Text(if (isOpenSearch) "CloseSearch" else "Search") },
                                             onClick = {
                                                 if (isOpenSearch) viewModel.stopSearch()
                                                 isOpenSearch = !isOpenSearch
@@ -468,10 +468,10 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                             }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text("终端") },
+                                            text = { Text("Terminal") },
                                             onClick = {
                                                 isMoreMenuExpanded = false
-                                                // 🔥 跳转到独立的终端页面
+                                                // 🔥 跳转到独立的Terminal页面
                                                 navController.navigate("terminal")
                                             }
                                         )
@@ -483,14 +483,14 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                             }
                                         )
 
-                                        // 只有文件存在且路径属于当前项目(可选逻辑)时才显示
+                                        // 只有File存在且Path属于当前项目(可选逻辑)时才显示
                                         if (viewModel.lastBuiltApk != null && viewModel.lastBuiltApk!!.exists()) {
                                             DropdownMenuItem(
                                                 text = {
                                                     Column {
-                                                        Text("安装上次构建的 APK")
+                                                        Text("Install上次Build的 APK")
                                                         Text(
-                                                            text = "版本: ${viewModel.lastBuiltApk!!.name}",
+                                                            text = "Version: ${viewModel.lastBuiltApk!!.name}",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.secondary
                                                         )
@@ -498,7 +498,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                                 },
                                                 onClick = {
                                                     isMoreMenuExpanded = false
-                                                    // 调用安装器
+                                                    // 调用Install器
                                                     ApkInstaller.install(context, viewModel.lastBuiltApk!!)
                                                 }
                                             )
@@ -507,7 +507,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
 
                                         if (hasWebAppConfig) {
                                             DropdownMenuItem(
-                                                text = { Text("构建 APK") },
+                                                text = { Text("Build APK") },
                                                 enabled = !isBuilding,
                                                 onClick = {
                                                     isMoreMenuExpanded = false
@@ -522,7 +522,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                                             onResult = { resultState ->
                                                                 buildResult = resultState
                                                                 isBuilding = false
-                                                                // 🔥 新增：如果构建成功，保存路径到 ViewModel
+                                                                // 🔥 Added：如果Build successful，SavePath到 ViewModel
                                                                 if (resultState is BuildResultState.Finished && resultState.apkPath != null) {
                                                                     viewModel.updateLastBuild(resultState.apkPath)
                                                                 }
@@ -579,7 +579,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                             )
                         }
 
-                        // 搜索面板
+                        // Search面板
                         AnimatedVisibility(visible = isOpenSearch) {
                             Column {
                                 HorizontalDivider(
@@ -620,9 +620,9 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                         .padding(innerPadding)
                         .fillMaxSize()
                         .imePadding()) {
-                        val availableEditorHeight = maxHeight // 这就是 EditorPanelLayout 可以用的全部高度
+                        val availableEditorHeight = maxHeight // 这就Yes EditorPanelLayout 可以用的全部高度
                         
-                        // 🔥 修改：在代码编辑器和Diff模式下显示符号栏，仅在媒体查看器或无文件时隐藏
+                        // 🔥 修改：在代码编辑器和Diff模式下显示符号栏，仅在媒体查看器或NoneFile时隐藏
                         val activeTab = viewModel.openFiles.getOrNull(viewModel.activeFileIndex)
                         val shouldShowSymbols = activeTab is com.web.webide.ui.editor.viewmodel.CodeEditorState || 
                                               activeTab is com.web.webide.ui.editor.viewmodel.DiffEditorState
@@ -666,7 +666,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                             }
                         }
                         
-                        // 配置文件可视化入口
+                        // 配置File可视化入口
                         // Removed duplicate button from here
 
                         
@@ -684,7 +684,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
-                                // 点击时：关闭侧滑栏
+                                // 点击时：Close侧滑栏
                                 scope.launch { drawerState.close() }
                             }
                         )
@@ -703,10 +703,10 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = isFileType, onClick = { isFileType = true })
-                            Text("文件")
+                            Text("File")
                             Spacer(Modifier.width(16.dp))
                             RadioButton(selected = !isFileType, onClick = { isFileType = false })
-                            Text("文件夹")
+                            Text("File夹")
                         }
                         OutlinedTextField(
                             value = nameInput,
@@ -728,7 +728,7 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                     }) { Text("创建") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showCreateDialog = false }) { Text("取消") }
+                    TextButton(onClick = { showCreateDialog = false }) { Text("Cancel") }
                 }
             )
         }
@@ -749,22 +749,22 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
             )
         }
 
-        // 3. 构建结果弹窗
+        // 3. Build结果弹窗
         buildResult?.let { result ->
             if (result is BuildResultState.Finished) {
                 val isSuccess = result.apkPath != null
                 AlertDialog(
                     onDismissRequest = { buildResult = null },
-                    title = { Text(if (isSuccess) "构建成功" else "构建失败") },
+                    title = { Text(if (isSuccess) "Build successful" else "Build failed") },
                     text = {
                         Column {
                             if (isSuccess) {
-                                Text("APK 已生成，是否立即安装？")
+                                Text("APK 已生成，YesNo立即Install？")
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("输出路径:", style = MaterialTheme.typography.titleSmall)
+                                Text("输出Path:", style = MaterialTheme.typography.titleSmall)
                                 Text(result.apkPath, style = MaterialTheme.typography.bodySmall)
                             } else {
-                                Text("错误信息：", color = MaterialTheme.colorScheme.error)
+                                Text("ErrorInfo：", color = MaterialTheme.colorScheme.error)
                                 Text(result.message)
                             }
                         }
@@ -775,11 +775,11 @@ fun CodeEditScreen(folderName: String, navController: NavController, viewModel: 
                                 val apkFile = File(result.apkPath)
                                 ApkInstaller.install(context, apkFile)
                                 buildResult = null
-                            }) { Text("安装") }
+                            }) { Text("Install") }
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { buildResult = null }) { Text("关闭") }
+                        TextButton(onClick = { buildResult = null }) { Text("Close") }
                     }
                 )
             }
@@ -835,14 +835,14 @@ fun EditCode(
             // History Menu for Empty State (Attached to the button)
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("未打开任何文件")
+                    Text("未打On任何File")
                     if (viewModel.editorConfig.showHistory && viewModel.closedFilesHistory.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Box {
                             TextButton(onClick = { expandedTabIndex = -2 }) {
                                 Icon(Icons.Default.History, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("恢复最近关闭")
+                                Text("Restore最近Close")
                             }
                             
                             DropdownMenu(
@@ -851,7 +851,7 @@ fun EditCode(
                             ) {
                                 if (viewModel.closedFilesHistory.isEmpty()) {
                                      DropdownMenuItem(
-                                        text = { Text("无最近关闭记录", color = MaterialTheme.colorScheme.secondary) },
+                                        text = { Text("None最近Close记录", color = MaterialTheme.colorScheme.secondary) },
                                         onClick = { expandedTabIndex = null }
                                     )
                                 } else {
@@ -923,15 +923,15 @@ fun EditCode(
                                 onDismissRequest = { expandedTabIndex = null }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("关闭") },
+                                    text = { Text("Close") },
                                     onClick = { expandedTabIndex = null; viewModel.closeFile(index) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("关闭其他") },
+                                    text = { Text("Close其他") },
                                     onClick = { expandedTabIndex = null; viewModel.closeOtherFiles(index) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("关闭全部") },
+                                    text = { Text("Close全部") },
                                     onClick = { expandedTabIndex = null; viewModel.closeAllFiles() }
                                 )
                             }
@@ -952,7 +952,7 @@ fun EditCode(
                         ) {
                              if (viewModel.closedFilesHistory.isEmpty()) {
                                  DropdownMenuItem(
-                                    text = { Text("无最近关闭记录", color = MaterialTheme.colorScheme.secondary) },
+                                    text = { Text("None最近Close记录", color = MaterialTheme.colorScheme.secondary) },
                                     onClick = { expandedTabIndex = null }
                                 )
                             } else {
@@ -989,7 +989,7 @@ fun EditCode(
                     if (page in openFiles.indices) {
                         val tab = openFiles[page]
 
-                        // 🔥🔥 根据类型渲染组件 🔥🔥
+                        // 🔥🔥 根据Type渲染组件 🔥🔥
                         when (tab) {
                             is com.web.webide.ui.editor.viewmodel.MediaEditorState -> {
                                 com.web.webide.ui.editor.components.MediaViewer(
@@ -1087,7 +1087,7 @@ fun FileManagerDrawer(
                     ) {
                         Icon(Icons.AutoMirrored.Filled.InsertDriveFile, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(16.dp))
-                        Text("文件")
+                        Text("File")
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -1101,13 +1101,13 @@ fun FileManagerDrawer(
                     ) {
                         Icon(Icons.Filled.Folder, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(16.dp))
-                        Text("文件夹")
+                        Text("File夹")
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showCreateMenu = false }) { Text("取消") }
+                TextButton(onClick = { showCreateMenu = false }) { Text("Cancel") }
             }
         )
     }
@@ -1116,12 +1116,12 @@ fun FileManagerDrawer(
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showNewFileDialog = false },
-            title = { Text("新建文件") },
+            title = { Text("New File") },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("文件名") },
+                    label = { Text("Filename") },
                     singleLine = true
                 )
             },
@@ -1146,10 +1146,10 @@ fun FileManagerDrawer(
                         }
                         showNewFileDialog = false
                     }
-                }) { Text("确定") }
+                }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showNewFileDialog = false }) { Text("取消") }
+                TextButton(onClick = { showNewFileDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -1158,12 +1158,12 @@ fun FileManagerDrawer(
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showNewFolderDialog = false },
-            title = { Text("新建文件夹") },
+            title = { Text("New Folder") },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("文件夹名") },
+                    label = { Text("File夹名") },
                     singleLine = true
                 )
             },
@@ -1187,10 +1187,10 @@ fun FileManagerDrawer(
                         }
                         showNewFolderDialog = false
                     }
-                }) { Text("确定") }
+                }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showNewFolderDialog = false }) { Text("取消") }
+                TextButton(onClick = { showNewFolderDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -1198,7 +1198,7 @@ fun FileManagerDrawer(
     if (showSettingsMenu) {
         AlertDialog(
             onDismissRequest = { showSettingsMenu = false },
-            title = { Text("文件树设置") },
+            title = { Text("File TreeSettings") },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text("排序方式", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -1206,12 +1206,12 @@ fun FileManagerDrawer(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(sortBy = SortBy.NAME)) }.padding(vertical = 8.dp)) {
                         RadioButton(selected = fileTreeConfig.sortBy == SortBy.NAME, onClick = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("按名称排序")
+                        Text("按Name排序")
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(sortBy = SortBy.TYPE)) }.padding(vertical = 8.dp)) {
                         RadioButton(selected = fileTreeConfig.sortBy == SortBy.TYPE, onClick = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("按类型排序")
+                        Text("按Type排序")
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(sortBy = SortBy.DATE_NEWEST)) }.padding(vertical = 8.dp)) {
                         RadioButton(selected = fileTreeConfig.sortBy == SortBy.DATE_NEWEST, onClick = null)
@@ -1225,12 +1225,12 @@ fun FileManagerDrawer(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(foldersAlwaysOnTop = !fileTreeConfig.foldersAlwaysOnTop)) }.padding(vertical = 8.dp)) {
                         Checkbox(checked = fileTreeConfig.foldersAlwaysOnTop, onCheckedChange = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("文件夹置顶")
+                        Text("File夹置顶")
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(showDetails = !fileTreeConfig.showDetails)) }.padding(vertical = 8.dp)) {
                         Checkbox(checked = fileTreeConfig.showDetails, onCheckedChange = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("显示详细信息")
+                        Text("显示详细Info")
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(compactMiddlePackages = !fileTreeConfig.compactMiddlePackages)) }.padding(vertical = 8.dp)) {
                         Checkbox(checked = fileTreeConfig.compactMiddlePackages, onCheckedChange = null)
@@ -1262,12 +1262,12 @@ fun FileManagerDrawer(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onConfigChange(fileTreeConfig.copy(alwaysSelectOpenedFile = !fileTreeConfig.alwaysSelectOpenedFile)) }.padding(vertical = 8.dp)) {
                         Checkbox(checked = fileTreeConfig.alwaysSelectOpenedFile, onCheckedChange = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("始终选中打开的文件")
+                        Text("始终选中打On的File")
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showSettingsMenu = false }) { Text("关闭") }
+                TextButton(onClick = { showSettingsMenu = false }) { Text("Close") }
             }
         )
     }
@@ -1282,7 +1282,7 @@ fun FileManagerDrawer(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "文件树",
+                "File Tree",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(start = 8.dp)
             )
@@ -1406,7 +1406,7 @@ fun AnimatedDrawerToggle(
             // 箭头尖端 X (保持在 endX，即最右侧，作为旋转中心)
             val arrowTipX = endX
 
-            // 缩短箭头的关键：
+            // 缩短箭头的Off键：
             // 让箭头的“尾巴”比菜单的“左边”更靠右
             val shrinkOffset = 3.dp.toPx() // 缩进量
             val arrowShaftStartX = startX + shrinkOffset
@@ -1480,7 +1480,7 @@ private suspend fun performBuild(
     onResult: (BuildResultState) -> Unit
 ) {
     if (!viewModel.saveAllModifiedFiles(snackbarHostState)) {
-        onResult(BuildResultState.Finished("保存失败，构建已取消"))
+        onResult(BuildResultState.Finished("Save失败，Build已Cancel"))
         return
     }
     val prefs = context.getSharedPreferences("WebIDE_Project_Settings", Context.MODE_PRIVATE)
@@ -1495,7 +1495,7 @@ private suspend fun performBuild(
     var iconPath = ""
     var permissions: Array<String>? = null
 
-    // 🔥 新增：签名变量初始化
+    // 🔥 Added：Sign变量初始化
     var customKeyPath: String? = null
     var customStorePass: String? = null
     var customAlias: String? = null
@@ -1514,7 +1514,7 @@ private suspend fun performBuild(
 
             val json = org.json.JSONObject(jsonStr)
 
-            // 1. 基础信息解析 (保持原有)
+            // 1. 基础Info解析 (保持原有)
             pkg = json.optString("package", pkg)
             verName = json.optString("versionName", verName)
             verCode = json.optString("versionCode", verCode)
@@ -1535,29 +1535,29 @@ private suspend fun performBuild(
                 permissions = list.toTypedArray()
             }
 
-            // 🔥 2. 解析签名配置 (新增逻辑)
+            // 🔥 2. 解析Sign配置 (Added逻辑)
             val signingObj = json.optJSONObject("signing")
             if (signingObj != null) {
                 val keyFileName = signingObj.optString("keystore")
                 if (keyFileName.isNotEmpty()) {
-                    // 拼接完整路径：项目目录 + key文件名
+                    // 拼接完整Path：项目目录 + keyFilename
                     val keyFile = File(projectPath, keyFileName)
-                    // 只有文件存在时才传递路径，否则 ApkBuilder 会回退到默认
+                    // 只有File存在时才传递Path，No则 ApkBuilder 会回退到默认
                     if (keyFile.exists()) {
                         customKeyPath = keyFile.absolutePath
                         customStorePass = signingObj.optString("storePassword")
                         customAlias = signingObj.optString("alias")
-                        // 如果别名密码为空，通常默认与库密码相同，或者尝试读取 keyPassword
+                        // 如果别名Password为空，通常默认与库Password相同，或者尝试读取 keyPassword
                         customKeyPass = signingObj.optString("keyPassword", customStorePass)
                     } else {
-                        LogCatcher.w("Build", "webapp.json 中指定了 keystore 但文件未找到: $keyFileName")
+                        LogCatcher.w("Build", "webapp.json 中指定了 keystore 但File未找到: $keyFileName")
                     }
                 }
             }
 
         } catch (e: Exception) {
             LogCatcher.e("Build", "JSON Error", e)
-            onResult(BuildResultState.Finished("webapp.json 格式错误: ${e.message}"))
+            onResult(BuildResultState.Finished("webapp.json 格式Error: ${e.message}"))
             return
         }
     }
@@ -1575,7 +1575,7 @@ private suspend fun performBuild(
             permissions,
             isDebug,
             enableEncryption, // 🔥 传入加密配置
-            // 🔥 传入解析出的签名参数 (如果上面没解析到，这些就是 null)
+            // 🔥 传入解析出的Sign参数 (如果上面没解析到，这些就Yes null)
             customKeyPath,
             customStorePass,
             customAlias,
@@ -1586,6 +1586,6 @@ private suspend fun performBuild(
     if (result.startsWith("error:")) {
         onResult(BuildResultState.Finished(result, null))
     } else {
-        onResult(BuildResultState.Finished("构建成功", result))
+        onResult(BuildResultState.Finished("Build successful", result))
     }
 }

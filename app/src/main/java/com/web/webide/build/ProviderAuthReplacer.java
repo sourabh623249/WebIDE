@@ -34,23 +34,23 @@ public class ProviderAuthReplacer {
     private static final int CHUNK_STRING_POOL = 0x001C0001;
 
     /**
-     * 替换 Manifest 中的 Provider 授权
-     * @param manifestFile Manifest 文件
-     * @param oldPackageName 旧包名
-     * @param newPackageName 新包名
-     * @throws Exception 处理异常
+     * Replace Manifest 中的 Provider 授权
+     * @param manifestFile Manifest File
+     * @param oldPackageName 旧Package Name
+     * @param newPackageName 新Package Name
+     * @throws Exception matches理异常
      */
     public static void replaceProviderAuthorities(File manifestFile, String oldPackageName, String newPackageName) throws Exception {
         if (oldPackageName == null || newPackageName == null ||
                 oldPackageName.equals(newPackageName)) {
-            LogCatcher.d("ProviderAuthReplacer", "包名相同，无需替换");
+            LogCatcher.d("ProviderAuthReplacer", "Package Name相同，None需Replace");
             return;
         }
 
-        // 构建需要替换的授权映射
+        // Build需要Replace的授权映射
         Map<String, String> authMapping = new HashMap<>();
 
-        // 1. 基础 Provider 授权替换
+        // 1. 基础 Provider 授权Replace
         String[] baseProviders = {
                 ".provider",
                 ".fileprovider",
@@ -79,31 +79,31 @@ public class ProviderAuthReplacer {
         };
 
         for (String oldAuth : commonProviders) {
-            // 计算新的授权名称
+            // 计算新的授权Name
             String newAuth;
             if (oldAuth.startsWith("com.web.webapp.")) {
-                // 处理硬编码的 com.web.webapp
+                // matches理硬编码的 com.web.webapp
                 newAuth = oldAuth.replace("com.web.webapp.", newPackageName + ".");
             } else if (oldAuth.startsWith(oldPackageName + ".")) {
-                // 处理包名开头的
+                // matches理Package NameOn头的
                 newAuth = oldAuth.replace(oldPackageName + ".", newPackageName + ".");
             } else {
-                // 其他情况，直接追加新包名
+                // 其他情况，直接追加新Package Name
                 newAuth = newPackageName + oldAuth.substring(oldAuth.lastIndexOf('.'));
             }
             authMapping.put(oldAuth, newAuth);
         }
 
-        // 执行批量替换
+        // 执行批量Replace
         if (!authMapping.isEmpty()) {
-            LogCatcher.i("ProviderAuthReplacer", "开始替换 Provider 授权，共 " + authMapping.size() + " 个映射");
+            LogCatcher.i("ProviderAuthReplacer", "On始Replace Provider 授权，共 " + authMapping.size() + " 个映射");
             batchReplaceStringInAXML(manifestFile, authMapping);
         }
     }
 
     /**
      * 扫描并获取 Manifest 中的所有 Provider 授权
-     * @param manifestFile Manifest 文件
+     * @param manifestFile Manifest File
      * @return 授权列表
      */
     public static List<String> scanProviderAuthorities(File manifestFile) throws Exception {
@@ -113,9 +113,9 @@ public class ProviderAuthReplacer {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-        // 跳过文件头
-        if (buffer.getInt() != 0x00080003) { // AXML 文件头
-            throw new IllegalArgumentException("无效的 AXML 文件");
+        // SkipFile头
+        if (buffer.getInt() != 0x00080003) { // AXML File头
+            throw new IllegalArgumentException("None效的 AXML File");
         }
         buffer.position(8);
 
@@ -152,7 +152,7 @@ public class ProviderAuthReplacer {
             String str = readString(buffer, isUTF8);
             strings.add(str);
 
-            // 检查是否为 Provider 授权（常见的授权模式）
+            // 检查YesNo为 Provider 授权（常见的授权模式）
             if (str.contains(".provider") || str.contains(".fileprovider") ||
                     str.contains("content://") || str.contains(".startup")) {
                 authorities.add(str);
@@ -163,9 +163,9 @@ public class ProviderAuthReplacer {
     }
 
     /**
-     * 批量替换 AXML 中的字符串
-     * @param axmlFile AXML 文件
-     * @param replacementMap 替换映射
+     * 批量Replace AXML 中的字符串
+     * @param axmlFile AXML File
+     * @param replacementMap Replace映射
      */
     public static void batchReplaceStringInAXML(File axmlFile, Map<String, String> replacementMap) throws Exception {
         if (replacementMap.isEmpty()) {
@@ -176,9 +176,9 @@ public class ProviderAuthReplacer {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-        // 检查文件头
+        // 检查File头
         if (buffer.getInt() != 0x00080003) {
-            throw new IllegalArgumentException("无效的 AXML 文件");
+            throw new IllegalArgumentException("None效的 AXML File");
         }
         buffer.position(8);
 
@@ -214,13 +214,13 @@ public class ProviderAuthReplacer {
             strings.add(readString(buffer, isUTF8));
         }
 
-        // 替换字符串
+        // Replace字符串
         boolean modified = false;
         for (int i = 0; i < strings.size(); i++) {
             String current = strings.get(i);
             for (Map.Entry<String, String> entry : replacementMap.entrySet()) {
                 if (current.equals(entry.getKey())) {
-                    LogCatcher.d("ProviderAuthReplacer", "替换: " + entry.getKey() + " -> " + entry.getValue());
+                    LogCatcher.d("ProviderAuthReplacer", "Replace: " + entry.getKey() + " -> " + entry.getValue());
                     strings.set(i, entry.getValue());
                     modified = true;
                     break;
@@ -229,23 +229,23 @@ public class ProviderAuthReplacer {
         }
 
         if (!modified) {
-            LogCatcher.w("ProviderAuthReplacer", "未找到匹配的字符串进行替换");
+            LogCatcher.w("ProviderAuthReplacer", "未找到匹配的字符串进行Replace");
             return;
         }
 
-        // 重新构建字符串池
+        // 重新Build字符串池
         byte[] newStringData = buildStringPool(strings, isUTF8);
 
-        // 构建新文件
+        // Build新File
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-        // 1. 写入文件头
+        // 1. 写入File头
         output.write(data, 0, 8);
 
         // 2. 写入新的字符串池头部
         ByteBuffer header = ByteBuffer.allocate(28).order(ByteOrder.LITTLE_ENDIAN);
         header.putInt(CHUNK_STRING_POOL);
-        header.putInt(28 + (stringCount * 4) + newStringData.length); // 新的大小
+        header.putInt(28 + (stringCount * 4) + newStringData.length); // 新的Size
         header.putInt(stringCount);
         header.putInt(styleCount);
         header.putInt(flags);
@@ -280,7 +280,7 @@ public class ProviderAuthReplacer {
             }
         }
 
-        // 填充到4字节对齐
+        // 填充到4字节Align
         while (currentOffset % 4 != 0) {
             tempStrings.write(0);
             currentOffset++;
@@ -293,17 +293,17 @@ public class ProviderAuthReplacer {
         int remainingPos = stringPoolStart + chunkSize;
         output.write(data, remainingPos, data.length - remainingPos);
 
-        // 5. 更新文件大小
+        // 5. 更新FileSize
         byte[] finalData = output.toByteArray();
         ByteBuffer finalBuffer = ByteBuffer.wrap(finalData).order(ByteOrder.LITTLE_ENDIAN);
         finalBuffer.putInt(4, finalData.length);
 
-        // 写回文件
+        // 写回File
         try (FileOutputStream fos = new FileOutputStream(axmlFile)) {
             fos.write(finalData);
         }
 
-        LogCatcher.i("ProviderAuthReplacer", "Provider 授权替换完成");
+        LogCatcher.i("ProviderAuthReplacer", "Provider 授权ReplaceDone");
     }
 
     private static String readString(ByteBuffer buffer, boolean isUTF8) {
@@ -358,7 +358,7 @@ public class ProviderAuthReplacer {
             }
         }
 
-        // 4字节对齐
+        // 4字节Align
         while (poolData.size() % 4 != 0) {
             poolData.write(0);
         }
@@ -379,37 +379,37 @@ public class ProviderAuthReplacer {
     }
 
     /**
-     * 快速检查并修复 Provider 冲突问题
-     * @param manifestFile Manifest 文件
-     * @param newPackageName 新包名
+     * 快速检查并修复 Provider Conflict问题
+     * @param manifestFile Manifest File
+     * @param newPackageName 新Package Name
      */
     public static void fixProviderConflicts(File manifestFile, String newPackageName) {
         try {
-            LogCatcher.i("ProviderAuthReplacer", "开始检查 Provider 冲突...");
+            LogCatcher.i("ProviderAuthReplacer", "On始检查 Provider Conflict...");
 
             // 扫描现有的 Provider 授权
             List<String> authorities = scanProviderAuthorities(manifestFile);
             LogCatcher.i("ProviderAuthReplacer", "发现 " + authorities.size() + " 个 Provider 授权");
 
-            // 替换所有基于 com.web.webapp 的授权
+            // Replace所有基于 com.web.webapp 的授权
             Map<String, String> replacements = new HashMap<>();
             for (String auth : authorities) {
                 if (auth.contains("com.web.webapp")) {
                     String newAuth = auth.replace("com.web.webapp", newPackageName);
                     replacements.put(auth, newAuth);
-                    LogCatcher.d("ProviderAuthReplacer", "需要替换: " + auth + " -> " + newAuth);
+                    LogCatcher.d("ProviderAuthReplacer", "需要Replace: " + auth + " -> " + newAuth);
                 }
             }
 
             if (!replacements.isEmpty()) {
                 batchReplaceStringInAXML(manifestFile, replacements);
-                LogCatcher.i("ProviderAuthReplacer", "Provider 冲突修复完成");
+                LogCatcher.i("ProviderAuthReplacer", "Provider Conflict修复Done");
             } else {
-                LogCatcher.i("ProviderAuthReplacer", "未发现需要替换的 Provider 授权");
+                LogCatcher.i("ProviderAuthReplacer", "未发现需要Replace的 Provider 授权");
             }
 
         } catch (Exception e) {
-            LogCatcher.e("ProviderAuthReplacer", "修复 Provider 冲突失败", e);
+            LogCatcher.e("ProviderAuthReplacer", "修复 Provider Conflict失败", e);
         }
     }
 }

@@ -90,7 +90,7 @@ fun CodeEditorView(
 
     val editorConfig = viewModel.editorConfig
 
-    // === 字体加载逻辑 ===
+    // === Font加载逻辑 ===
     val editorTypeface = remember(editorConfig.fontPath) {
         if (editorConfig.fontPath.isBlank()) {
             Typeface.MONOSPACE
@@ -123,7 +123,7 @@ fun CodeEditorView(
 
     val editor = remember(state.file.absolutePath) { viewModel.getOrCreateEditor(context, state) }
 
-    // 添加自定义文本操作按钮 (在双击/长按选区后的弹窗中)
+    // 添加Custom文本操作按钮 (在双击/长按选区后的弹窗中)
     DisposableEffect(editor) {
         val textActionWindow = editor.getComponent(EditorTextActionWindow::class.java)
         val provider = object : EditorTextActionWindow.ExtraButtonProvider {
@@ -151,18 +151,18 @@ fun CodeEditorView(
         }
     }
 
-    // 当 TextMate 准备好时，重新加载编辑器语言（从 EmptyLanguage 切换到 TextMateLanguage）
+    // 当 TextMate 准备好时，重新加载编辑器Language（从 EmptyLanguage 切换到 TextMateLanguage）
     LaunchedEffect(isEditorReady) {
         if (isEditorReady) {
             viewModel.reloadAllEditors(context)
         }
     }
 
-    // 监听深色模式变化
+    // 监听Dark Mode变化
     LaunchedEffect(seedColor, isDark, isEditorReady, colorScheme) {
         if (isEditorReady) {
             try {
-                // 1. 设置 TextMate 主题 (语法高亮)
+                // 1. Settings TextMate Theme (语法高亮)
                 val targetTheme = if (isDark) TextMateInitializer.THEME_DARK else TextMateInitializer.THEME_LIGHT
                 ThemeRegistry.getInstance().setTheme(targetTheme)
                 
@@ -172,10 +172,10 @@ fun CodeEditorView(
                     editor.colorScheme = newScheme
                 }
                 
-                // 3. 应用 Material 主题颜色覆盖 (背景色、行号等)
+                // 3. Apply Material Theme Color覆盖 (背景色、Line等)
                 viewModel.updateEditorTheme(colorScheme)
                 
-                // 4. 强制刷新
+                // 4. 强制Refresh
                 editor.invalidate()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -225,10 +225,10 @@ fun CodeEditorView(
 
                         val actions = remember {
                             listOf(
-                                Triple("剪切", Icons.Filled.ContentCut) { editor.cutText() },
-                                Triple("复制", Icons.Filled.ContentCopy) { editor.copyText() },
-                                Triple("粘贴", Icons.Filled.ContentPaste) { editor.pasteText() },
-                                Triple("全选", Icons.Filled.SelectAll) { editor.selectAll() },
+                                Triple("Cut", Icons.Filled.ContentCut) { editor.cutText() },
+                                Triple("Copy", Icons.Filled.ContentCopy) { editor.copyText() },
+                                Triple("Paste", Icons.Filled.ContentPaste) { editor.pasteText() },
+                                Triple("Select All", Icons.Filled.SelectAll) { editor.selectAll() },
                                 Triple("选择单行", Icons.AutoMirrored.Filled.Segment) {
                                     val cursor = editor.cursor
                                     val line = cursor.leftLine
@@ -240,30 +240,30 @@ fun CodeEditorView(
                                         }
                                     }
                                 },
-                                Triple("保存", Icons.Filled.Save) {
+                                Triple("Save", Icons.Filled.Save) {
                                     viewModel.onContentChanged(state.file, editor.text.toString(), saveToFile = true)
                                     state.onContentSaved()
                                 },
-                                Triple("保存全部", Icons.Filled.Save) {
+                                Triple("Save全部", Icons.Filled.Save) {
                                 viewModel.openFiles.filterIsInstance<CodeEditorState>().filter { it.isModified }.forEach { s ->
                                     viewModel.onContentChanged(s.file, s.content, saveToFile = true)
                                     s.onContentSaved()
                                 }
                             },
-                            Triple("撤销", Icons.AutoMirrored.Filled.Undo) { editor.undo() },
-                            Triple("重做", Icons.AutoMirrored.Filled.Redo) { editor.redo() },
+                            Triple("Undo", Icons.AutoMirrored.Filled.Undo) { editor.undo() },
+                            Triple("Redo", Icons.AutoMirrored.Filled.Redo) { editor.redo() },
                             Triple("跳转行", Icons.Filled.SwapVert) { onShowJumpLine() },
-                            Triple("格式化", Icons.Filled.Menu) { viewModel.formatCode() },
+                            Triple("Format", Icons.Filled.Menu) { viewModel.formatCode() },
                             Triple("新建", Icons.Filled.Add) { onShowCreate() },
                             Triple("调色板", Icons.Filled.ColorLens) { onShowColorPicker() },
-                            Triple("终端", Icons.Filled.Dns) { onNavigateToTerminal() },
+                            Triple("Terminal", Icons.Filled.Dns) { onNavigateToTerminal() },
                             Triple("运行", Icons.Filled.PlayArrow) {
                                 onRun()
                             },
                                 Triple("只读模式", Icons.Filled.Lock) {
                                     editor.isEditable = !editor.isEditable
                                 },
-                                Triple("搜索替换", Icons.Filled.Search) {
+                                Triple("SearchReplace", Icons.Filled.Search) {
                                     onShowSearch()
                                 },
                                 Triple("重载", Icons.Filled.Refresh) {

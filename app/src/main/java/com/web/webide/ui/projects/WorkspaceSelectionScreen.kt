@@ -44,11 +44,11 @@ fun WorkspaceSelectionScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 初始化时获取当前路径
+    // 初始化时获取当前Path
     var selectedWorkspace by remember { mutableStateOf(WorkspaceManager.getWorkspacePath(context)) }
     var showFileSelector by remember { mutableStateOf(false) }
 
-    // 权限请求回调
+    // Permission请求回调
     val permissionState = PermissionManager.rememberPermissionRequest(
         onPermissionGranted = {
             saveAndNavigate(context, selectedWorkspace, navController, scope)
@@ -56,7 +56,7 @@ fun WorkspaceSelectionScreen(navController: NavController) {
         onPermissionDenied = { /* 可选：提示用户 */ }
     )
 
-    // ✅✅✅ 修复点 1：进入页面时，检查是否已经配置过。
+    // ✅✅✅ 修复点 1：进入页面时，检查YesNo已经配置过。
     // 如果已配置，直接跳转到主页，不再让用户重新选择。
     LaunchedEffect(Unit) {
         if (WorkspaceManager.isWorkspaceConfigured(context)) {
@@ -65,7 +65,7 @@ fun WorkspaceSelectionScreen(navController: NavController) {
                 popUpTo("workspace_selection") { inclusive = true }
             }
         } else {
-            // 只有完全未配置（第一次安装）时，才考虑是否自动弹窗
+            // 只有完全未配置（第一次Install）时，才考虑YesNo自动弹窗
             // 这里建议设为 false，让用户先看界面文字，手动点按钮再弹窗，体验更好
             showFileSelector = false
         }
@@ -98,7 +98,7 @@ fun WorkspaceSelectionScreen(navController: NavController) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "所有项目文件将存储在此目录中。",
+                    "所有项目File将存储在此目录中。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -155,7 +155,7 @@ fun WorkspaceSelectionScreen(navController: NavController) {
                     },
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text("确认并继续")
+                    Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text("Confirm并继续")
                 }
             }
         }

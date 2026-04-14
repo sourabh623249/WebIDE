@@ -39,7 +39,7 @@ data class ThemeColor(
     // =========== ⬆️ 兼容代码结束 ⬆️ ===========
 }
 
-// 3. 数据列表保持之前给你的双色配置 (直接复制覆盖即可)
+// 3. 数据列表保持之前给你的双色配置 (直接Copy覆盖即可)
 val themeColors = listOf(
     ThemeColor(
         name = "Catppuccin",

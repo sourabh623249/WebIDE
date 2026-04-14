@@ -132,7 +132,7 @@ fun App(
         navController = navController,
         startDestination = startDestination,
 
-        // 应用优化后的动画
+        // Apply优化后的动画
         enterTransition = { enterTransition() },
         exitTransition = { exitTransition() },
         popEnterTransition = { popEnterTransition() },

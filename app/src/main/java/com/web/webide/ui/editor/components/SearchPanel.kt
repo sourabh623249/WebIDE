@@ -79,7 +79,7 @@ fun SearchPanel(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)) {
-            // 第一行：搜索栏
+            // 第一行：Search栏
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.height(50.dp) // 固定高度，防止跳动
@@ -93,9 +93,9 @@ fun SearchPanel(
                     modifier = Modifier
                         .weight(1f)
                         .defaultMinSize(minHeight = 40.dp),
-                    placeholder = { Text("搜索...", style = MaterialTheme.typography.bodyMedium) },
+                    placeholder = { Text("Search...", style = MaterialTheme.typography.bodyMedium) },
                     leadingIcon = {
-                        // 大小写切换按钮放在左侧，节省空间
+                        // Size写切换按钮放在左侧，节省空间
                         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                             IconButton(onClick = {
                                 ignoreCase = !ignoreCase
@@ -137,15 +137,15 @@ fun SearchPanel(
                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { viewModel.searchPrev() }, modifier = Modifier.padding(horizontal = 4.dp)) {
-                            Icon(Icons.Default.KeyboardArrowUp, "上一个")
+                            Icon(Icons.Default.KeyboardArrowUp, "Previous")
                         }
                         IconButton(onClick = { viewModel.searchNext() }, modifier = Modifier.padding(horizontal = 4.dp)) {
-                            Icon(Icons.Default.KeyboardArrowDown, "下一个")
+                            Icon(Icons.Default.KeyboardArrowDown, "Next")
                         }
                         IconButton(onClick = { isReplaceVisible = !isReplaceVisible }, modifier = Modifier.padding(horizontal = 4.dp)) {
                             Icon(
                                 Icons.Default.FindReplace,
-                                contentDescription = "替换",
+                                contentDescription = "Replace",
                                 tint = if (isReplaceVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -153,13 +153,13 @@ fun SearchPanel(
                             viewModel.stopSearch()
                             onClose()
                         }, modifier = Modifier.padding(start = 4.dp)) {
-                            Icon(Icons.Default.Close, "关闭")
+                            Icon(Icons.Default.Close, "Close")
                         }
                     }
                 }
             }
 
-            // 第二行：替换栏
+            // 第二行：Replace栏
             AnimatedVisibility(visible = isReplaceVisible) {
                 Row(
                     modifier = Modifier
@@ -172,7 +172,7 @@ fun SearchPanel(
                         value = replaceText,
                         onValueChange = { replaceText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("替换...", style = MaterialTheme.typography.bodyMedium) },
+                        placeholder = { Text("Replace...", style = MaterialTheme.typography.bodyMedium) },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium,
                         colors = TextFieldDefaults.colors(
@@ -188,7 +188,7 @@ fun SearchPanel(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         shape = RoundedCornerShape(4.dp)
                     ) {
-                        Text("替换", style = MaterialTheme.typography.labelMedium)
+                        Text("Replace", style = MaterialTheme.typography.labelMedium)
                     }
 
                     Spacer(modifier = Modifier.width(4.dp))

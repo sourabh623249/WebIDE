@@ -278,7 +278,7 @@ fun ProjectConfigScreen(
                     e.printStackTrace()
                     withContext(Dispatchers.Main) {
                         isLoading = false
-                        snackbarHostState.showSnackbar("保存失败: ${e.message}")
+                        snackbarHostState.showSnackbar("Save失败: ${e.message}")
                     }
                 }
             }
@@ -306,7 +306,7 @@ fun ProjectConfigScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("项目配置", fontSize = 18.sp, fontWeight = FontWeight.Medium) },
+                title = { Text("Project Config", fontSize = 18.sp, fontWeight = FontWeight.Medium) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
@@ -317,7 +317,7 @@ fun ProjectConfigScreen(
                         if (isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.Save, "保存")
+                            Icon(Icons.Default.Save, "Save")
                         }
                     }
                 },
@@ -338,11 +338,11 @@ fun ProjectConfigScreen(
             
             // --- Basic Info ---
             ConfigSectionTitle("App Info")
-            CleanTextField(appName, { appName = it }, "应用名称 (App Name)",
+            CleanTextField(appName, { appName = it }, "App Name (App Name)",
                 Icons.AutoMirrored.Outlined.Label
             )
             Spacer(Modifier.height(16.dp))
-            CleanTextField(packageName, { packageName = it }, "包名 (Package)", Icons.Outlined.Info, keyboardType = KeyboardType.Ascii)
+            CleanTextField(packageName, { packageName = it }, "Package Name (Package)", Icons.Outlined.Info, keyboardType = KeyboardType.Ascii)
             Spacer(Modifier.height(16.dp))
             
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -354,7 +354,7 @@ fun ProjectConfigScreen(
             CleanTextField(targetUrl, { targetUrl = it }, "目标 URL", Icons.Outlined.Link, keyboardType = KeyboardType.Uri)
             
             Spacer(Modifier.height(16.dp))
-            FileSelectorRow("应用图标", iconPath, { iconPickerLauncher.launch("image/*") }, icon = Icons.Outlined.Image)
+            FileSelectorRow("Apply图标", iconPath, { iconPickerLauncher.launch("image/*") }, icon = Icons.Outlined.Image)
             
             Spacer(Modifier.height(8.dp))
             SwitchRow("资源加密 (HTML/JS/CSS)", encryptionEnabled) { encryptionEnabled = it }
@@ -377,7 +377,7 @@ fun ProjectConfigScreen(
             }
             
             Spacer(Modifier.height(4.dp))
-            SwitchRow("全屏模式", isFullscreen) { isFullscreen = it }
+            SwitchRow("Fullscreen模式", isFullscreen) { isFullscreen = it }
             SwitchRow("Webview 缩放", zoomEnabled) { zoomEnabled = it }
             
             Spacer(Modifier.height(8.dp))
@@ -402,11 +402,11 @@ fun ProjectConfigScreen(
             }
             
             Spacer(Modifier.height(8.dp))
-            SwitchRow("深色状态栏文字", isDarkStatusText) { isDarkStatusText = it }
+            SwitchRow("Dark状态栏文字", isDarkStatusText) { isDarkStatusText = it }
 
             // --- Signing ---
             ConfigSectionTitle("Signing")
-            SwitchRow("启用自定义签名", enableSigning) { enableSigning = it }
+            SwitchRow("启用CustomSign", enableSigning) { enableSigning = it }
 
             AnimatedVisibility(
                 visible = enableSigning,
@@ -415,7 +415,7 @@ fun ProjectConfigScreen(
             ) {
                 Column {
                     Spacer(Modifier.height(8.dp))
-                    FileSelectorRow("Keystore 文件", keystorePath, { keystorePickerLauncher.launch("*/*") })
+                    FileSelectorRow("Keystore File", keystorePath, { keystorePickerLauncher.launch("*/*") })
                     Spacer(Modifier.height(16.dp))
                     CleanTextField(keystoreAlias, { keystoreAlias = it }, "Alias", Icons.Outlined.Badge, isSmall = true)
                     Spacer(Modifier.height(16.dp))

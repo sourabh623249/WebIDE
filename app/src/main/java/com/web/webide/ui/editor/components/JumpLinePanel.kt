@@ -57,21 +57,21 @@ fun JumpLinePanel(
                     // 只允许数字
                     val filtered = input.filter { it.isDigit() }
                     lineText = filtered
-                    // 🔥 实时预览跳转：如果输入不为空，则直接调用跳转逻辑
+                    // 🔥 实时Preview跳转：如果输入不为空，则直接调用跳转逻辑
                     if (filtered.isNotEmpty()) {
                         onJump(filtered)
                     }
                 },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("输入行号...", style = MaterialTheme.typography.bodyMedium) },
+                placeholder = { Text("输入Line...", style = MaterialTheme.typography.bodyMedium) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done // 键盘右下角显示“完成”
+                    imeAction = ImeAction.Done // 键盘右下角显示“Done”
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {
-                        // 按下完成键时关闭面板
+                        // 按下Done键时Close面板
                         onClose()
                     }
                 ),
@@ -82,7 +82,7 @@ fun JumpLinePanel(
             )
 
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, "关闭", modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Close, "Close", modifier = Modifier.size(20.dp))
             }
         }
     }

@@ -73,7 +73,7 @@ object SessionManager {
                 }
             }
 
-            // --- 下面是其他必须实现但暂时不需要的接口 ---
+            // --- 下面Yes其他必须实现但暂时不需要的接口 ---
             override fun onCopyTextToClipboard(session: TerminalSession, text: String) {}
             override fun onPasteTextFromClipboard(session: TerminalSession?) {}
             override fun onBell(session: TerminalSession) {}

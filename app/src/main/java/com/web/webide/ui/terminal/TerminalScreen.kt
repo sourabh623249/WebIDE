@@ -94,7 +94,7 @@ fun TerminalScreen(navController: NavController) {
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            // 仅处理左右的安全区域，顶部和底部交给 topBar/bottomBar 处理
+            // 仅matches理左右的安全区域，顶部和底部交给 topBar/bottomBar matches理
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
 
         // === 顶部区域 ===
@@ -103,7 +103,7 @@ fun TerminalScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .statusBarsPadding() // 1. 确保避开状态栏
+                    .statusBarsPadding() // 1. 确保避On状态栏
             ) {
                 // 1. 标题栏
                 TopAppBar(
@@ -134,12 +134,12 @@ fun TerminalScreen(navController: NavController) {
                 // 2. Tabs + Add Button
                 // 🔥 按照您的要求：
                 // 1. 设定固定高度 (45dp)，防止太大占地
-                // 2. 移除 CenterVertically，改为 Bottom (底对齐)，紧贴分割线
+                // 2. 移除 CenterVertically，改为 Bottom (底Align)，紧贴分割线
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(45.dp),
-                    verticalAlignment = Alignment.Bottom // 🔥 核心修改：底对齐
+                    verticalAlignment = Alignment.Bottom // 🔥 核心修改：底Align
                 ) {
                     if (SessionManager.sessions.isNotEmpty()) {
                         SecondaryScrollableTabRow(
@@ -211,8 +211,8 @@ fun TerminalScreen(navController: NavController) {
                     )
 
                     // Add 按钮
-                    // 因为 Row 是底对齐，按钮可能会沉底。
-                    // 这里我们还是让按钮稍微居中一点点看起来舒服，或者就让它沉底
+                    // 因为 Row Yes底Align，按钮可能会沉底。
+                    // 这里我们还Yes让按钮稍微居中一点点看起来舒服，或者就让它沉底
                     Box(
                         modifier = Modifier
                             .size(45.dp) // 宽度和高度填满 Row
@@ -255,10 +255,10 @@ fun TerminalScreen(navController: NavController) {
                             AndroidView(
                                 factory = { ctx ->
                                     VirtualKeysView(ctx, null).apply {
-                                        // 🔥 设置全局引用
+                                        // 🔥 Settings全局引用
                                         virtualKeysView = WeakReference(this)
 
-                                        // 🔥 使用 TerminalSession 而不是 TerminalView
+                                        // 🔥 使用 TerminalSession 而不Yes TerminalView
                                         virtualKeysViewClient = currentSession?.let { VirtualKeysListener(it) }
 
                                         setButtonTextAllCaps(true)
@@ -338,14 +338,14 @@ fun TerminalScreen(navController: NavController) {
             }
         }
     ) { innerPadding ->
-        // === 终端内容区域 ===
-        // 🔥🔥🔥 这里的 innerPadding 非常关键！它包含了 TopBar 的高度。
-        // 如果这里没加 padding，TopBar 就会直接盖在终端上面。
+        // === Terminal内容区域 ===
+        // 🔥🔥🔥 这里的 innerPadding 非常Off键！它包含了 TopBar 的高度。
+        // 如果这里没加 padding，TopBar 就会直接盖在Terminal上面。
         if (currentSession != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding) // 必须应用 Scaffold 传递的 Padding
+                    .padding(innerPadding) // 必须Apply Scaffold 传递的 Padding
                     .background(Color(TerminalConfig.getBackgroundColor(isSystemDark)))
             ) {
                 AndroidView(

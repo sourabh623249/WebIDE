@@ -98,7 +98,7 @@ class ThemeDataStoreRepository(private val context: Context) {
         style: PaletteStyle
     ) {
         // ✅ [修复点2] 写入逻辑：使用 .toArgb() 获取标准的 Int 值
-        // 这样可以屏蔽 Color 内部是 Float 还是 Int 的差异
+        // 这样可以屏蔽 Color 内部Yes Float 还Yes Int 的差异
         val colorInt = customColor.toArgb()
 
         LogCatcher.w("ThemeDebug_Repo", "Repo写入: Monet=$isMonetEnabled, Custom=$isCustom, Style=$style, ColorInt=$colorInt")
@@ -108,7 +108,7 @@ class ThemeDataStoreRepository(private val context: Context) {
             preferences[PreferencesKeys.SELECTED_THEME] = selectedThemeIndex
             preferences[PreferencesKeys.IS_MONET_ENABLED] = isMonetEnabled
             preferences[PreferencesKeys.IS_CUSTOM] = isCustom
-            preferences[PreferencesKeys.CUSTOM_COLOR] = colorInt.toLong() // Int 转 Long 保存
+            preferences[PreferencesKeys.CUSTOM_COLOR] = colorInt.toLong() // Int 转 Long Save
             preferences[PreferencesKeys.SELECTED_STYLE] = style.name
         }
     }

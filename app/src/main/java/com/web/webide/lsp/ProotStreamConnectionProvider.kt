@@ -49,16 +49,16 @@ class ProotStreamConnectionProvider(
             process = pb.start()
             Log.d("LSP-Process", "进程启动成功 PID: ${process.toString()}")
 
-            // === 修复崩溃的关键点：监控错误流时增加 try-catch ===
+            // === 修复崩溃的Off键点：监控Error流时增加 try-catch ===
             thread {
                 try {
                     process?.errorStream?.bufferedReader()?.forEachLine {
                         Log.e("LSP-Stderr", it)
                     }
                 } catch (_: IOException) {
-                    // 正常现象：当 destroy() 被调用时，流被关闭会抛出此异常，忽略即可
+                    // 正常现象：当 destroy() 被调用时，流被Close会抛出此异常，忽略即可
                 } catch (e: Exception) {
-                    Log.e("LSP-Stderr", "读取错误流失败", e)
+                    Log.e("LSP-Stderr", "读取Error流失败", e)
                 }
             }
             // ===========================================
@@ -69,7 +69,7 @@ class ProotStreamConnectionProvider(
         }
     }
 
-    // === 修复编译错误：使用 val 加 get()，而不是 fun ===
+    // === 修复编译Error：使用 val 加 get()，而不Yes fun ===
 
     // 包装输入流，打印 LSP 回复给 Editor 的内容 (LSP -> App)
     override val inputStream: InputStream
@@ -78,7 +78,7 @@ class ProotStreamConnectionProvider(
                 try {
                     val read = super.read(b, off, len)
                     if (read > 0) {
-                        // 这里的日志用于调试，内容太多可以注释掉
+                        // 这里的Log用于Debug，内容太多可以注释掉
                          Log.v("LSP-RX", "收到 $read 字节数据")
                     }
                     return read
@@ -88,14 +88,14 @@ class ProotStreamConnectionProvider(
             }
         }
 
-    // 包装输出流，打印 Editor 发送给 LSP 的内容 (App -> LSP)
+    // 包装输出流，打印 Editor Send给 LSP 的内容 (App -> LSP)
     override val outputStream: OutputStream
         get() = object : FilterOutputStream(process?.outputStream) {
             override fun write(b: ByteArray, off: Int, len: Int) {
                 try {
                     val content = String(b, off, len)
                     val logContent = if (content.length > 200) content.substring(0, 200) + "..." else content
-                    Log.d("LSP-TX", "发送: $logContent")
+                    Log.d("LSP-TX", "Send: $logContent")
 
                     super.write(b, off, len)
                 } catch (e: IOException) {
@@ -105,7 +105,7 @@ class ProotStreamConnectionProvider(
         }
 
     override fun close() {
-        Log.d("LSP-Process", "正在关闭 LSP 进程...")
+        Log.d("LSP-Process", "正在Close LSP 进程...")
         process?.destroy()
         process = null
     }

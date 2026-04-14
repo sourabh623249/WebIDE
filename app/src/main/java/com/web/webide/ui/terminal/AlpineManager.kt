@@ -20,7 +20,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-// 文件: java/com/example/sorarunrun/terminal/AlpineManager.kt
+// File: java/com/example/sorarunrun/terminal/AlpineManager.kt
 
 package com.web.webide.ui.terminal
 
@@ -42,7 +42,7 @@ object AlpineManager {
     private fun getLibDir(context: Context): File = File(getLocalDir(context), "lib").apply { mkdirs() }
 
     /**
-     * 构建 Proot 命令列表
+     * Build Proot 命令列表
      * 用于启动 LSP 后台进程 (ProotStreamConnectionProvider)
      *
      * @param context 安卓上下文
@@ -52,11 +52,11 @@ object AlpineManager {
         val prefixDir = getPrefixDir(context)
         val alpineDir = File(prefixDir, "local/alpine")
 
-        // [🔥 修复点 1] 获取有执行权限的 proot 路径
+        // [🔥 修复点 1] 获取有执行Permission的 proot Path
         val nativeLibDir = context.applicationInfo.nativeLibraryDir
         val libProot = File(nativeLibDir, "libproot.so")
 
-        // 如果文件没搬对，这里会找不到，所以第一步一定要做
+        // 如果File没搬对，这里会找不到，所以第一步一定要做
         val prootExec = if (libProot.exists()) libProot.absolutePath else File(getBinDir(context), "proot").absolutePath
 
         val args = mutableListOf<String>()
@@ -84,7 +84,7 @@ object AlpineManager {
         args.add("-b")
         args.add("${tmpDir.absolutePath}:/dev/shm")
 
-        // [🔥 修复点 3] 必须将 filesDir 挂载到绝对路径，方便 LSP 找文件
+        // [🔥 修复点 3] 必须将 filesDir 挂载到绝对Path，方便 LSP 找File
 
         val rootHome = File(alpineDir, "root")
         if (!rootHome.exists()) {
@@ -108,7 +108,7 @@ object AlpineManager {
         // 确保 PATH 包含 npm 的 bin 目录
         args.add("NODE_PATH=/root/lsp/node_modules")
 
-        // 🔥🔥🔥 修改点 2: 把 /root/lsp/node_modules/.bin 加入 PATH (虽然我们打算用绝对路径，但这能防止内部调用出错)
+        // 🔥🔥🔥 修改点 2: 把 /root/lsp/node_modules/.bin 加入 PATH (虽然我们打算用绝对Path，但这能防止内部调用出错)
         args.add("PATH=/root/lsp/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
 
         args.add("LANG=C.UTF-8")
@@ -131,7 +131,7 @@ object AlpineManager {
 
     /**
      * 获取运行 Proot 所需的宿主环境变量
-     * 主要是为了注入 libproot-loader.so 来绕过 Android 的 Seccomp 限制
+     * 主要Yes为了注入 libproot-loader.so 来绕过 Android 的 Seccomp 限制
      */
     fun getProotEnv(context: Context): Map<String, String> {
         val env = mutableMapOf<String, String>()
@@ -142,8 +142,8 @@ object AlpineManager {
 
         // [🔥 核心修复 🔥]
         // 告诉 Linker 去哪里找 libtalloc.so.2
-        // SetupWorker 会把 libtalloc.so.2 复制到 filesDir 和 filesDir/local/lib
-        // 我们把这两个路径都加到 LD_LIBRARY_PATH 里
+        // SetupWorker 会把 libtalloc.so.2 Copy到 filesDir 和 filesDir/local/lib
+        // 我们把这两个Path都加到 LD_LIBRARY_PATH 里
         val libPath = "${context.filesDir.absolutePath}:${context.filesDir.absolutePath}/local/lib:$nativeLibDir"
         env["LD_LIBRARY_PATH"] = libPath
 
@@ -156,7 +156,7 @@ object AlpineManager {
         return env
     }
 
-    // --- 创建 Terminal Session (用于 UI 终端) ---
+    // --- 创建 Terminal Session (用于 UI Terminal) ---
     fun createSession(context: Context, client: TerminalSessionClient, projectPath: String? = null): TerminalSession {
         val binDir = getBinDir(context)
         val libDir = getLibDir(context)
@@ -196,7 +196,7 @@ object AlpineManager {
             "PROOT_TMP_DIR=${context.cacheDir.absolutePath}",
             "TMPDIR=${context.cacheDir.absolutePath}",
 
-            //自定义环境变量
+            //Custom环境变量
             "WEBIDE_VERSION_NAME=$versionName",
             "WEBIDE_VERSION_CODE=$versionCode",
             "WEBIDE_WORKSPACE=$workspacePath",
@@ -211,7 +211,7 @@ object AlpineManager {
             env.add("PROOT_LOADER32=$nativeLibDir/libproot-loader32.so")
         }
 
-        // 3. 伪造系统文件
+        // 3. 伪造系统File
         val statFile = File(getLocalDir(context), "stat")
         if (!statFile.exists()) statFile.writeText(stat)
         val vmstatFile = File(getLocalDir(context), "vmstat")

@@ -50,16 +50,16 @@ object WorkspaceManager {
             return getDefaultPath(context)
         }
 
-        // 🔥🔥🔥 修复点 2：更稳健的路径检查逻辑 🔥🔥🔥
-        // 之前的逻辑依赖绝对路径字符串匹配，容易因为 /sdcard 与 /storage/emulated/0 的差异导致误判
-        // 现在的逻辑：只要路径包含 "Android/data"，就检查它是否包含"当前App的包名"
+        // 🔥🔥🔥 修复点 2：更稳健的Path检查逻辑 🔥🔥🔥
+        // 之前的逻辑依赖绝对Path字符串匹配，容易因为 /sdcard 与 /storage/emulated/0 的差异导致误判
+        // 现在的逻辑：只要Path包含 "Android/data"，就检查它YesNo包含"当前App的Package Name"
         if (savedPath.contains("/Android/data/")) {
             val packageName = context.packageName
-            // 如果路径里连包名都不包含，说明这个路径肯定是其他App的（或者旧包名的），我们没有权限，必须重置
+            // 如果Path里连Package Name都不包含，说明这个Path肯定Yes其他App的（或者旧Package Name的），我们没有Permission，必须重置
             if (!savedPath.contains(packageName)) {
-                android.util.Log.e("WorkspaceManager", "检测到失效路径(包名不匹配): $savedPath，重置为默认")
+                android.util.Log.e("WorkspaceManager", "检测到失效Path(Package Name不匹配): $savedPath，重置为默认")
                 val validPath = getDefaultPath(context)
-                saveWorkspacePath(context, validPath) // 自动保存纠正后的路径
+                saveWorkspacePath(context, validPath) // 自动Save纠正后的Path
                 return validPath
             }
         }
@@ -69,7 +69,7 @@ object WorkspaceManager {
 
     fun isWorkspaceConfigured(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        // 只要这个值为 true，就说明用户点击过“确认并继续”
+        // 只要这个值为 true，就说明用户点击过“Confirm并继续”
         return prefs.getBoolean(KEY_IS_CONFIGURED, false)
     }
 
@@ -89,7 +89,7 @@ object WorkspaceManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit {
             putString(KEY_WORKSPACE_PATH, path)
-            // ✅ 关键：设置为 true，表示用户已完成初始化向导
+            // ✅ Off键：Settings为 true，表示用户已Done初始化向导
             putBoolean(KEY_IS_CONFIGURED, true)
         }
         ensurePathExists(context, path)

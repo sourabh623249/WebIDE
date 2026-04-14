@@ -77,7 +77,7 @@ import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
 
 enum class PanelPage(val title: String) {
-    BUILD_LOG("构建"),
+    BUILD_LOG("Build"),
     DIAGNOSTICS("问题"),
 }
 
@@ -199,7 +199,7 @@ fun DiagnosticsPanel(viewModel: EditorViewModel) {
 
     if (diagnostics.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("暂无问题", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("暂None问题", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {
         LazyColumn(
@@ -278,7 +278,7 @@ private fun PanelTopBar(
             modifier = Modifier.align(Alignment.CenterStart)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // 🔥 修复报错: 先检查是否是 CodeEditorState 再访问 lspEditor
+                // 🔥 修复报错: 先检查YesNoYes CodeEditorState 再访问 lspEditor
                 val activeTab = viewModel.openFiles.getOrNull(viewModel.activeFileIndex)
                 val lspConnected = if (activeTab is CodeEditorState) activeTab.lspEditor != null else false
 
@@ -325,7 +325,7 @@ fun BuildLogPanel() {
     val logs = remember { mutableStateListOf<LogEntry>() }
     val listState = rememberLazyListState()
 
-    // 监听日志流
+    // 监听Log流
     LaunchedEffect(Unit) {
         // 1. 先加载历史记录
         logs.clear()
@@ -335,12 +335,12 @@ fun BuildLogPanel() {
             listState.scrollToItem(logs.size - 1)
         }
 
-        // 2. 监听新日志
+        // 2. 监听新Log
         LogCatcher.logFlow.collect { entry ->
-            // 只显示 ApkBuilder 或 Build 相关的日志
+            // 只显示 ApkBuilder 或 Build 相Off的Log
             if (entry.tag == "ApkBuilder" || entry.tag == "Build") {
-                // 如果是新构建的开始，清理本地显示的旧日志
-                if (entry.message.contains("========== 开始构建")) {
+                // 如果Yes新Build的On始，清理本地显示的旧Log
+                if (entry.message.contains("========== On始Build")) {
                     logs.clear()
                 }
                 
@@ -355,7 +355,7 @@ fun BuildLogPanel() {
 
     if (logs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("暂无构建日志", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("暂NoneBuildLog", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {
         LazyColumn(

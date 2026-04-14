@@ -27,8 +27,8 @@ import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
 object EditorColorSchemeManager {
 
     /**
-     * 将 Material 主题色应用到现有的 EditorColorScheme
-     * 直接使用 Compose 的 ColorScheme，无需重复计算 HCT
+     * 将 Material Theme色Apply到现有的 EditorColorScheme
+     * 直接使用 Compose 的 ColorScheme，None需重复计算 HCT
      */
     fun applyThemeColors(scheme: EditorColorScheme, colorScheme: ColorScheme) {
         val primary = colorScheme.primary.toArgb()
@@ -45,10 +45,10 @@ object EditorColorSchemeManager {
             setColor(EditorColorScheme.LINE_NUMBER, onSurfaceVariant)
             setColor(EditorColorScheme.LINE_NUMBER_CURRENT, primary)
             
-            // 当前行高亮
+            // 当前Line Height亮
             setColor(EditorColorScheme.CURRENT_LINE, adjustAlpha(surfaceVariant, 0.3f))
             
-            // 选择相关
+            // 选择相Off
             setColor(EditorColorScheme.SELECTED_TEXT_BACKGROUND, adjustAlpha(primary, 0.25f))
             setColor(EditorColorScheme.SELECTION_INSERT, primary)
             setColor(EditorColorScheme.SELECTION_HANDLE, primary)
@@ -57,7 +57,7 @@ object EditorColorSchemeManager {
             setColor(EditorColorScheme.SCROLL_BAR_THUMB, adjustAlpha(onSurfaceVariant, 0.3f))
             setColor(EditorColorScheme.SCROLL_BAR_THUMB_PRESSED, adjustAlpha(primary, 0.5f))
             
-            // 自动完成窗口
+            // 自动Done窗口
             setColor(EditorColorScheme.COMPLETION_WND_BACKGROUND, surface)
             setColor(EditorColorScheme.COMPLETION_WND_CORNER, surfaceVariant)
             setColor(EditorColorScheme.COMPLETION_WND_ITEM_CURRENT, adjustAlpha(primary, 0.2f))
@@ -80,21 +80,21 @@ object EditorColorSchemeManager {
             setColor(EditorColorScheme.BLOCK_LINE_CURRENT, primary)
             setColor(EditorColorScheme.SIDE_BLOCK_LINE, surfaceVariant)
             
-            // 确保文本颜色适配深色/浅色模式 (针对 TreeSitter 或默认编辑器)
+            // 确保文本颜色适配Dark/Light Mode (针对 TreeSitter 或默认编辑器)
             val onBackground = colorScheme.onBackground.toArgb()
             setColor(EditorColorScheme.TEXT_NORMAL, onBackground)
             
-            // 如果是浅色模式，优化 TreeSitter 的默认高亮颜色 (简单的覆盖，防止看不清)
+            // 如果YesLight Mode，优化 TreeSitter 的默认高亮颜色 (简单的覆盖，防止看不清)
             if (!isDarkScheme(this)) {
-                 setColor(EditorColorScheme.KEYWORD, 0xFF0000FF.toInt()) // 蓝色关键字
+                 setColor(EditorColorScheme.KEYWORD, 0xFF0000FF.toInt()) // 蓝色Off键字
                  setColor(EditorColorScheme.COMMENT, 0xFF008000.toInt()) // 绿色注释
                  setColor(EditorColorScheme.LITERAL, 0xFF098658.toInt()) // 深绿数字/常量
                  setColor(EditorColorScheme.OPERATOR, 0xFF333333.toInt()) // 深灰操作符
                  setColor(EditorColorScheme.IDENTIFIER_NAME, 0xFF001080.toInt()) // 深蓝标识符
                  setColor(EditorColorScheme.IDENTIFIER_VAR, 0xFF001080.toInt()) // 深蓝变量
                  setColor(EditorColorScheme.FUNCTION_NAME, 0xFF795E26.toInt()) // 金色函数名
-                 setColor(EditorColorScheme.ATTRIBUTE_NAME, 0xFF001080.toInt()) // 属性名
-                 setColor(EditorColorScheme.ATTRIBUTE_VALUE, 0xFFA31515.toInt()) // 属性值
+                 setColor(EditorColorScheme.ATTRIBUTE_NAME, 0xFF001080.toInt()) // Properties名
+                 setColor(EditorColorScheme.ATTRIBUTE_VALUE, 0xFFA31515.toInt()) // Properties值
                  setColor(EditorColorScheme.HTML_TAG, 0xFF800000.toInt()) // HTML标签
             }
         }
@@ -109,16 +109,16 @@ object EditorColorSchemeManager {
     }
 
     /**
-     * 获取 Diff 视图的新增行背景色
+     * 获取 Diff 视图的Added行背景色
      */
     fun getDiffAddColor(scheme: EditorColorScheme): Int {
         val isDark = isDarkScheme(scheme)
-        // 深色模式下用深绿，浅色模式下用浅绿，或者统一用半透明绿
+        // Dark Mode下用深绿，Light Mode下用浅绿，或者统一用半透明绿
         return if (isDark) 0x401B5E20 else 0x40A5D6A7
     }
 
     /**
-     * 获取 Diff 视图的删除行背景色
+     * 获取 Diff 视图的Removed背景色
      */
     fun getDiffDeleteColor(scheme: EditorColorScheme): Int {
         val isDark = isDarkScheme(scheme)
@@ -126,7 +126,7 @@ object EditorColorSchemeManager {
     }
 
     /**
-     * 获取 Diff 视图的新增行背景色 (Word Level)
+     * 获取 Diff 视图的Added行背景色 (Word Level)
      */
     fun getDiffAddWordColor(scheme: EditorColorScheme): Int {
         val isDark = isDarkScheme(scheme)
@@ -134,7 +134,7 @@ object EditorColorSchemeManager {
     }
 
     /**
-     * 获取 Diff 视图的删除行背景色 (Word Level)
+     * 获取 Diff 视图的Removed背景色 (Word Level)
      */
     fun getDiffDeleteWordColor(scheme: EditorColorScheme): Int {
         val isDark = isDarkScheme(scheme)
@@ -143,7 +143,7 @@ object EditorColorSchemeManager {
 
     private fun isDarkScheme(scheme: EditorColorScheme): Boolean {
         val bg = scheme.getColor(EditorColorScheme.WHOLE_BACKGROUND)
-        // 简单计算亮度，如果 R/G/B 平均值小于 128 认为是深色
+        // 简单计算亮度，如果 R/G/B 平均值小于 128 认为YesDark
         val r = AndroidColor.red(bg)
         val g = AndroidColor.green(bg)
         val b = AndroidColor.blue(bg)

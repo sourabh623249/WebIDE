@@ -33,18 +33,18 @@ object WelcomePreferences {
     }
     
     /**
-     * 检查是否已完成欢迎流程
+     * 检查YesNo已Done欢迎流程
      */
     fun isWelcomeCompleted(context: Context): Boolean {
         return getPreferences(context).getBoolean(KEY_WELCOME_COMPLETED, false)
     }
     
     /**
-     * 标记欢迎流程已完成
+     * 标记欢迎流程已Done
      */
     fun setWelcomeCompleted(context: Context) {
         getPreferences(context).edit { putBoolean(KEY_WELCOME_COMPLETED, true) }
-        LogCatcher.i("WelcomePreferences", "欢迎流程已标记为完成")
+        LogCatcher.i("WelcomePreferences", "欢迎流程已标记为Done")
     }
 
 }

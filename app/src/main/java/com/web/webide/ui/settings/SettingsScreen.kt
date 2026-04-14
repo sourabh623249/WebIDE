@@ -62,9 +62,9 @@ import com.web.webide.ui.components.DirectorySelector
 import com.web.webide.ui.components.ColorPickerDialog
 import com.web.webide.ui.welcome.themeColors
 
-// 自动保存选项枚举
+// 自动Save选项枚举
 enum class AutoSaveOption(val label: String, val interval: Long) {
-    OFF("关闭", 0L),
+    OFF("Close", 0L),
     SEC_30("每 30 秒", 30_000L),
     MIN_1("每 1 分钟", 60_000L),
     MIN_5("每 5 分钟", 300_000L),
@@ -77,7 +77,7 @@ fun Color.luminance(): Float {
 }
 
 private val PRESET_FONTS = listOf(
-    "默认字体" to "",
+    "默认Font" to "",
     "JetBrains Mono" to "ttf/JetBrainsMono-Regular.ttf",
     "Roboto Mono" to "ttf/RobotoMono-Regular.ttf",
     "Source Code Pro" to "ttf/SourceCodePro-Regular.ttf",
@@ -97,7 +97,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("WebIDE_Editor_Settings", Context.MODE_PRIVATE) }
 
-    // 使用与 ViewModel 中加载自动保存设置一致的 SharedPreferences 文件名
+    // 使用与 ViewModel 中加载自动SaveSettings一致的 SharedPreferences Filename
     val generalPrefs = remember { context.getSharedPreferences("WebIDE_Settings", Context.MODE_PRIVATE) }
 
     val fontSize = prefs.getFloat("editor_font_size", 14f)
@@ -114,10 +114,10 @@ fun SettingsScreen(
     var customSymbols by remember { mutableStateOf(prefs.getString("editor_custom_symbols", "Tab,<,>,/,=,\",',!,?,;,:,{,},[,],(,),+,-,*,_,&,|") ?: "") }
     var autoSaveInterval by remember { mutableLongStateOf(generalPrefs.getLong("auto_save_interval", 0L)) }
     var showAutoSaveDialog by remember { mutableStateOf(false) }
-    // 保存之前的 LSP 状态，用于检测变化
+    // Save之前的 LSP 状态，用于检测变化
     var previousLspEnabled by remember { mutableStateOf(lspEnabled) }
 
-    // 自动保存
+    // 自动Save
     LaunchedEffect(tabWidth, wordWrap, showInvisibles, codeFolding, showToolbar, showHistory, lspEnabled, aiEnabled, fontPath, customSymbols) {
         prefs.edit {
             putFloat("editor_font_size", fontSize)
@@ -148,7 +148,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("设置", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
@@ -208,13 +208,13 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                 )
             }
-            // 🔥 新增：自动保存设置入口
+            // 🔥 Added：自动SaveSettings入口
             item {
                 val currentOption = AutoSaveOption.entries.find { it.interval == autoSaveInterval } ?: AutoSaveOption.OFF
                 SimpleSettingsCard(
                     icon = Icons.Outlined.SaveAs, // 需要确保有此图标，如果没有可以使用 Icons.Default.Save
-                    title = "自动保存与备份",
-                    subtitle = if (currentOption == AutoSaveOption.OFF) "已关闭" else "频率: ${currentOption.label}",
+                    title = "自动Save与Backup",
+                    subtitle = if (currentOption == AutoSaveOption.OFF) "已Close" else "频率: ${currentOption.label}",
                     onClick = { showAutoSaveDialog = true }
                 )
             }
@@ -247,8 +247,8 @@ fun SettingsScreen(
             item {
                 SimpleSettingsCard(
                     icon = Icons.Outlined.Info,
-                    title = "关于",
-                    subtitle = "版本信息与介绍",
+                    title = "About",
+                    subtitle = "VersionInfo与介绍",
                     onClick = { navController.safeNavigate("about") }
                 )
             }
@@ -277,7 +277,7 @@ fun SettingsScreen(
             onPathSelected = { path ->
                 onLogConfigChange(logConfigState.isLogEnabled, path)
                 showLogPathSelector = false
-                Toast.makeText(context, "日志路径已更新", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "LogPath已更新", Toast.LENGTH_SHORT).show()
             },
             onDismissRequest = { showLogPathSelector = false }
         )
@@ -285,11 +285,11 @@ fun SettingsScreen(
     if (showAutoSaveDialog) {
         AlertDialog(
             onDismissRequest = { showAutoSaveDialog = false },
-            title = { Text("自动保存频率") },
+            title = { Text("自动Save频率") },
             text = {
                 Column {
                     Text(
-                        "开启后，系统将定时保存所有打开的文件，并在后台将项目打包备份至私有目录（保留最近5份）。",
+                        "On启后，系统将定时Save所有打On的File，并在后台将项目打包Backup至私有目录（保留最近5份）。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -304,10 +304,10 @@ fun SettingsScreen(
                                     autoSaveInterval = option.interval
                                     // 2. 写入 SharedPreferences
                                     generalPrefs.edit { putLong("auto_save_interval", option.interval) }
-                                    // 3. 关闭弹窗
+                                    // 3. Close弹窗
                                     showAutoSaveDialog = false
                                     // 4. 提示
-                                    val msg = if (option == AutoSaveOption.OFF) "自动保存已关闭" else "已设为 ${option.label} 自动保存"
+                                    val msg = if (option == AutoSaveOption.OFF) "自动Save已Close" else "已设为 ${option.label} 自动Save"
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 }
                                 .padding(vertical = 12.dp)
@@ -323,7 +323,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showAutoSaveDialog = false }) { Text("取消") }
+                TextButton(onClick = { showAutoSaveDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -340,7 +340,7 @@ fun SettingsScreen(
     }
 }
 
-// ================= 编辑器设置组件 (重构优化版) =================
+// ================= Editor Settings组件 (重构优化版) =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditorSettingsItem(
@@ -439,11 +439,11 @@ fun EditorSettingsItem(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text("智能辅助", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    CompactSwitchRow("AI 编程助手", isAiEnabled, onIsAiEnabledChange)
-                    CompactSwitchRow("LSP 代码补全", lspEnabled, onLspEnabledChange)
+                    CompactSwitchRow("AI Coding助手", isAiEnabled, onIsAiEnabledChange)
+                    CompactSwitchRow("LSP Code Completion", lspEnabled, onLspEnabledChange)
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // === 1. 缩进设置 (Segmented Style) ===
+                    // === 1. 缩进Settings (Segmented Style) ===
                     Text("缩进宽度", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -471,15 +471,15 @@ fun EditorSettingsItem(
                                 onClick = { onTabWidthChange(option) },
                                 modifier = Modifier
                                     .weight(1f)      // 三个按钮平分宽度
-                                    .height(32.dp),  // 【关键】高度压小，显得精致
-                                shape = RoundedCornerShape(4.dp), // 【关键】4dp 小圆角，硬朗风格
+                                    .height(32.dp),  // 【Off键】高度压小，显得精致
+                                shape = RoundedCornerShape(4.dp), // 【Off键】4dp 小圆角，硬朗风格
                                 color = containerColor,
                                 contentColor = contentColor
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = "$option 空格",
-                                        style = MaterialTheme.typography.labelMedium, // 使用较小的字号
+                                        style = MaterialTheme.typography.labelMedium, // 使用较小的Font Size
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
                                 }
@@ -489,8 +489,8 @@ fun EditorSettingsItem(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // === 2. 字体设置 (Combo Box 模式) ===
-                    Text("编辑器字体", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    // === 2. FontSettings (Combo Box 模式) ===
+                    Text("编辑器Font", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Box 容器用于定位 DropdownMenu
@@ -499,7 +499,7 @@ fun EditorSettingsItem(
                             value = fontPath,
                             onValueChange = onFontPathChange, // 允许直接输入
                             modifier = Modifier.fillMaxWidth(), // 不使用 menuAnchor，防止输入框点击触发 Menu
-                            label = { Text("请输入...") },
+                            label = { Text("Please enter...") },
                             singleLine = true,
                             trailingIcon = {
                                 IconButton(onClick = { isFontDropdownExpanded = !isFontDropdownExpanded }) {
@@ -536,18 +536,18 @@ fun EditorSettingsItem(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // === 3. 行为开关 ===
+                    // === 3. 行为OnOff ===
                     Text("行为", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     CompactSwitchRow("显示工具栏", showToolbar, onShowToolbarChange)
                     CompactSwitchRow("历史标签页", showHistory, onShowHistoryChange)
-                    CompactSwitchRow("自动换行", wordWrap, onWordWrapChange)
+                    CompactSwitchRow("Word Wrap", wordWrap, onWordWrapChange)
                     CompactSwitchRow("显示空白符", showInvisibles, onShowInvisiblesChange)
-                    CompactSwitchRow("代码折叠", codeFolding, onCodeFoldingChange)
+                    CompactSwitchRow("代码Collapse", codeFolding, onCodeFoldingChange)
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
 
                     // === 4. 符号栏 ===
-                    Text("自定义符号", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("Custom符号", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = customSymbols,
@@ -620,7 +620,7 @@ fun ThemeSettingsItem(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "外观与主题",
+                        text = "外观与Theme",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     AnimatedVisibility(
@@ -629,7 +629,7 @@ fun ThemeSettingsItem(
                         exit = fadeOut(tween(textFadeDuration)) + shrinkVertically(tween(textFadeDuration), shrinkTowards = Alignment.Top)
                     ) {
                         Text(
-                            text = if (currentThemeState.isMonetEnabled) "动态色彩" else "自定义外观",
+                            text = if (currentThemeState.isMonetEnabled) "动态色彩" else "Custom外观",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
@@ -671,7 +671,7 @@ fun ThemeSettingsItem(
                             Switch(
                                 checked = currentThemeState.isMonetEnabled,
                                 onCheckedChange = {
-                                    // 互斥逻辑：启用 Monet 时，强制关闭 CustomTheme
+                                    // 互斥逻辑：启用 Monet 时，强制Close CustomTheme
                                     val newIsCustom = if (it) false else currentThemeState.isCustomTheme
                                     onThemeChange(currentThemeState.selectedModeIndex, currentThemeState.selectedThemeIndex, currentThemeState.customColor, it, newIsCustom)
                                 }
@@ -681,7 +681,7 @@ fun ThemeSettingsItem(
 
                     AnimatedVisibility(visible = !currentThemeState.isMonetEnabled) {
                         Column {
-                            Text("主题色", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Text("Theme色", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
@@ -713,7 +713,7 @@ fun ThemeSettingsItem(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val modes = listOf("跟随系统", "浅色", "深色")
+                        val modes = listOf("Follow System", "Light", "Dark")
                         modes.forEachIndexed { index, label ->
                             SmoothFilterChip(
                                 selected = currentThemeState.selectedModeIndex == index,
@@ -765,7 +765,7 @@ fun LogSettingsItem(
                 Icon(Icons.Outlined.BugReport, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("启用日志", style = MaterialTheme.typography.titleMedium)
+                    Text("启用Log", style = MaterialTheme.typography.titleMedium)
                 }
                 Switch(checked = logConfigState.isLogEnabled, onCheckedChange = { onLogConfigChange(it, logConfigState.logFilePath) })
             }
@@ -850,6 +850,6 @@ fun CustomColorButton(isSelected: Boolean, customColor: Color, onClick: () -> Un
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
-        Text("自定义", style = MaterialTheme.typography.labelSmall, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Custom", style = MaterialTheme.typography.labelSmall, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -21,14 +21,14 @@ import android.content.Context
 import android.graphics.Typeface
 
 object TerminalFontManager {
-    // 默认字体路径
+    // 默认FontPath
     private const val DEFAULT_FONT_PATH = "ttf/JetBrainsMono-Regular.ttf"
 
     // 缓存 Typeface，避免重复加载
     private var cachedTypeface: Typeface? = null
 
     /**
-     * 获取全局终端字体
+     * 获取全局TerminalFont
      */
     fun getTypeface(context: Context): Typeface {
         // 如果已经加载过，直接返回缓存
@@ -36,14 +36,14 @@ object TerminalFontManager {
             return cachedTypeface!!
         }
 
-        // 尝试加载字体
+        // 尝试加载Font
         return try {
             val font = Typeface.createFromAsset(context.assets, DEFAULT_FONT_PATH)
             cachedTypeface = font
             font
         } catch (e: Exception) {
             e.printStackTrace()
-            // 如果加载失败（文件不存在），回退到系统等宽字体
+            // 如果加载失败（File不存在），回退到系统等宽Font
             Typeface.MONOSPACE
         }
     }

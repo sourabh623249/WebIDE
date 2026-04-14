@@ -31,7 +31,7 @@ class FullWebAppInterface(
     context: Context,
     webView: WebView,
     private val packageName: String,
-    private val projectDir: File, // ✅ IDE 特有：直接操作本地文件
+    private val projectDir: File, // ✅ IDE 特有：直接操作本地File
     private val onBackStateChange: (Boolean) -> Unit // ✅ IDE 特有：Compose 返回键控制
 ) : SharedWebInterface(context, webView) {
 
@@ -47,7 +47,7 @@ class FullWebAppInterface(
         return try { File(projectDir, "webapp.json").readText() } catch (e: Exception) { "{}" }
     }
 
-    // --- 文件系统 (针对 IDE 中的 java.io.File) ---
+    // --- File系统 (针对 IDE 中的 java.io.File) ---
 
     private fun resolveFile(path: String): File {
         return if (path.startsWith("assets/")) {

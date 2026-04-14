@@ -27,7 +27,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.web.webide.core.utils.ThemeDataStoreRepository
 import com.web.webide.core.utils.ThemeState
-import com.web.webide.core.utils.LogCatcher // 导入日志工具
+import com.web.webide.core.utils.LogCatcher // 导入Log工具
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -54,7 +54,7 @@ class ThemeViewModel(private val repository: ThemeDataStoreRepository) : ViewMod
         style: PaletteStyle = PaletteStyle.TonalSpot
     ) {
         // [Debug Log] ViewModel接收层
-        LogCatcher.d("ThemeDebug_VM", "ViewModel准备保存: Monet=$isMonetEnabled, Custom=$isCustom, Style=$style, Color=${customColor.value}")
+        LogCatcher.d("ThemeDebug_VM", "ViewModel准备Save: Monet=$isMonetEnabled, Custom=$isCustom, Style=$style, Color=${customColor.value}")
 
         viewModelScope.launch {
             repository.saveThemeConfig(selectedModeIndex, selectedThemeIndex, customColor, isMonetEnabled, isCustom, style)

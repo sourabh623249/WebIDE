@@ -72,20 +72,20 @@ class LogConfigRepository(private val context: Context) {
     }
 
     /**
-     * ✅ 核心修复：使用 combine 合并 DataStore 和 WorkspaceManager 的流
-     * 这样无论是修改了日志设置，还是修改了工作目录，这里都会重新计算
+     * ✅ 核心修复：使用 combine Merge DataStore 和 WorkspaceManager 的流
+     * 这样None论Yes修改了LogSettings，还Yes修改了工作目录，这里都会重新计算
      */
     val logConfigFlow: Flow<LogConfigState> = context.dataStore.data
         .combine(WorkspaceManager.getWorkspacePathFlow(context)) { preferences, workspacePath ->
 
             // 1. 获取动态的工作目录
-            // workspacePath 是从 Flow 实时传过来的
+            // workspacePath Yes从 Flow 实时传过来的
 
-            // 2. 构建默认的日志目录：工作目录/logs
+            // 2. Build默认的Log目录：工作目录/logs
             val defaultLogPath = File(workspacePath, "logs").absolutePath
 
-            // 3. 确定最终路径：
-            // 如果 DataStore 中用户手动指定了路径（savedPath 不为空），则优先使用手动指定的
+            // 3. OK最终Path：
+            // 如果 DataStore 中用户手动指定了Path（savedPath 不为空），则优先使用手动指定的
             // 如果没有手动指定（null 或空），则自动跟随工作目录
             val savedPath = preferences[PreferencesKeys.LOG_FILE_PATH]
             val finalPath = if (savedPath.isNullOrEmpty()) defaultLogPath else savedPath
@@ -101,8 +101,8 @@ class LogConfigRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.LOG_ENABLED] = isEnabled
 
-            // 可选优化：如果用户保存的路径和当前的默认路径一致，则存为 null/empty，
-            // 这样以后修改工作目录时，日志路径能继续自动跟随。
+            // 可选优化：如果用户Save的Path和当前的默认Path一致，则存为 null/empty，
+            // 这样以后修改工作目录时，LogPath能继续自动跟随。
             val currentWorkspace = WorkspaceManager.getWorkspacePath(context)
             val defaultPath = File(currentWorkspace, "logs").absolutePath
 
@@ -123,7 +123,7 @@ class LogConfigRepository(private val context: Context) {
 
 object LogCatcher {
 
-    // ✅ 修复后，类型引用变为更简单的 LogConfigState
+    // ✅ 修复后，Type引用变为更简单的 LogConfigState
     private var logConfig: LogConfigState? = null
 
     @Volatile
@@ -132,7 +132,7 @@ object LogCatcher {
     private val _logFlow = MutableSharedFlow<LogEntry>(extraBufferCapacity = 1000)
     val logFlow = _logFlow.asSharedFlow()
 
-    // 用于存储构建日志的历史记录
+    // 用于存储BuildLog的历史记录
     private val _buildLogs = Collections.synchronizedList(ArrayList<LogEntry>())
 
     @JvmStatic
@@ -151,7 +151,7 @@ object LogCatcher {
     fun updateConfig(config: LogConfigState) {
         logConfig = config
         isInitialized = true
-        i("LogCatcher", "日志系统已配置 - 启用: ${config.isLogEnabled}, 路径: ${config.logFilePath}")
+        i("LogCatcher", "Log系统已配置 - 启用: ${config.isLogEnabled}, Path: ${config.logFilePath}")
     }
 
     @JvmStatic
@@ -187,7 +187,7 @@ object LogCatcher {
     private fun emitLog(level: String, tag: String, message: String) {
         val entry = LogEntry(System.currentTimeMillis(), level, tag, message)
         
-        // 如果是构建相关的日志，保存到历史记录中
+        // 如果YesBuild相Off的Log，Save到历史记录中
         if (tag == "ApkBuilder" || tag == "Build") {
             _buildLogs.add(entry)
         }
@@ -211,7 +211,7 @@ object LogCatcher {
                 val logEntry = "[$timestamp] [$level] [$tag] $message\n"
                 logFile.appendText(logEntry)
             } catch (e: Exception) {
-                android.util.Log.e("LogCatcher", "写入日志文件失败: ${e.message}")
+                android.util.Log.e("LogCatcher", "写入LogFile失败: ${e.message}")
             }
         }
     }

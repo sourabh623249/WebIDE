@@ -34,9 +34,9 @@ import androidx.compose.ui.unit.sp
 fun EditorToolbar(
     onSave: () -> Unit,
     onSearch: () -> Unit,
-    onJump: () -> Unit,      // 新增
-    onCreate: () -> Unit,    // 新增
-    onPalette: () -> Unit,   // 新增
+    onJump: () -> Unit,      // Added
+    onCreate: () -> Unit,    // Added
+    onPalette: () -> Unit,   // Added
     onBuild: () -> Unit,
     onFormat: () -> Unit,
     isBuilding: Boolean,
@@ -52,16 +52,16 @@ fun EditorToolbar(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ToolbarItem("保存", onSave)
+            ToolbarItem("Save", onSave)
             ToolbarItem("新建", onCreate)
-            ToolbarItem("搜索", onSearch)
+            ToolbarItem("Search", onSearch)
             ToolbarItem("跳转指定", onJump)
-            ToolbarItem( "格式化", onFormat)
+            ToolbarItem( "Format", onFormat)
             ToolbarItem("配色", onPalette)
 
             if (hasWebAppConfig) {
                  ToolbarItem(
-                    label = if (isBuilding) "构建中..." else "构建APK",
+                    label = if (isBuilding) "Build中..." else "BuildAPK",
                     onClick = onBuild,
                     enabled = !isBuilding,
                     colors = if (isBuilding) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary

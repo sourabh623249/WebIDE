@@ -43,7 +43,7 @@ import org.apache.sshd.common.util.io.PathUtils
 import org.eclipse.jgit.treewalk.TreeWalk
 import org.eclipse.jgit.treewalk.filter.PathFilter
 
-// 日志标签，Logcat 搜索 "WebIDE_Git"
+// Log标签，Logcat Search "WebIDE_Git"
 private const val TAG = "WebIDE_Git"
 private val DEFAULT_GITIGNORE = """
     # --- WebIDE Security (绝对不能上传) ---
@@ -74,7 +74,7 @@ private val DEFAULT_GITIGNORE = """
 class GitManager(projectPath: String) {
     private val rootDir = File(projectPath)
 
-    // SSH 密钥存储目录 (隐藏文件夹)
+    // SSH 密钥存储目录 (隐藏File夹)
     private val sshConfigDir = File(rootDir, ".git_ssh_config")
 
     // ========================================================================
@@ -107,7 +107,7 @@ class GitManager(projectPath: String) {
                 Log.d(TAG, configFile.readText())
                 Log.d(TAG, "⬆️⬆️⬆️ [End Config] ⬆️⬆️⬆️")
             } else {
-                Log.e(TAG, "❌ 错误: .git/config 不存在")
+                Log.e(TAG, "❌ Error: .git/config 不存在")
             }
         } catch (e: Exception) {
             Log.e(TAG, "读取 config 失败", e)
@@ -119,12 +119,12 @@ class GitManager(projectPath: String) {
     // ========================================================================
 
     suspend fun initRepo() = withContext(Dispatchers.IO) {
-        Log.i(TAG, "正在初始化仓库: $rootDir")
+        Log.i(TAG, "正在Init Repository: $rootDir")
 
         // 1. 执行 Git Init
         val git = Git.init().setDirectory(rootDir).call()
 
-        // 2. 🔥 自动化：如果不存在，立即创建 .gitignore
+        // 2. 🔥 自动化：如果不存在，Create Now .gitignore
         val ignoreFile = File(rootDir, ".gitignore")
         if (!ignoreFile.exists()) {
             try {
@@ -134,8 +134,8 @@ class GitManager(projectPath: String) {
                 Log.e(TAG, "写入 .gitignore 失败", e)
             }
         } else {
-            // 3. 🔥 增强：如果文件已存在，检查是否遗漏了关键配置
-            // 防止用户自己建了文件但忘了加 .git_ssh_config
+            // 3. 🔥 增强：如果File已存在，检查YesNo遗漏了Off键配置
+            // 防止用户自己建了File但忘了加 .git_ssh_config
             val currentContent = ignoreFile.readText()
             if (!currentContent.contains(".git_ssh_config/")) {
                 ignoreFile.appendText("\n# Safety check by WebIDE\n.git_ssh_config/\n")
@@ -144,11 +144,11 @@ class GitManager(projectPath: String) {
         }
 
         // 4. (可选) 自动执行一次 Initial Commit?
-        // 通常 IDE 不会自动 commit，但会把文件变红/变绿显示出来。
+        // 通常 IDE 不会自动 commit，但会把File变红/变绿显示出来。
         // 这里我们只负责把环境配好。
 
         git.close()
-        Log.i(TAG, "仓库初始化流程完成 (Init + Security Rules)")
+        Log.i(TAG, "仓库初始化流程Done (Init + Security Rules)")
     }
     suspend fun getBranches(): List<GitBranch> = withContext(Dispatchers.IO) {
         if (!isGitRepo()) return@withContext emptyList()
@@ -196,7 +196,7 @@ class GitManager(projectPath: String) {
         status.conflicting.forEach { changes.add(GitFileChange(it, GitFileStatus.CONFLICTING)) }
 
         git.close()
-        if (changes.isNotEmpty()) Log.d(TAG, "检测到 ${changes.size} 个文件变更")
+        if (changes.isNotEmpty()) Log.d(TAG, "检测到 ${changes.size} 个File变更")
         changes.sortedBy { it.filePath }
     }
 
@@ -204,13 +204,13 @@ class GitManager(projectPath: String) {
         Log.i(TAG, "Commit: '$message'")
         val git = Git.open(rootDir)
 
-        // --- 🔥 硬核保险：Add 之前，再次确认敏感目录没被追踪 ---
-        // 这一步是为了防止用户手贱删了 .gitignore，然后又把私钥 commit 上去了
+        // --- 🔥 硬核保险：Add 之前，再次Confirm敏感目录没被追踪 ---
+        // 这一步Yes为了防止用户手贱删了 .gitignore，然后又把私钥 commit 上去了
         val sshDir = File(rootDir, ".git_ssh_config")
         if (sshDir.exists()) {
             // 确保 Git 不会追踪这个目录 (即使没有 .gitignore)
-            // 这是一个比较底层的防御，通常 .gitignore 够用了，但这能体现 IDE 的健壮性
-            // 不过 JGit 的 add() 主要还是看 .gitignore，所以这里我们确保 .gitignore 存在
+            // 这Yes一个比较底层的防御，通常 .gitignore 够用了，但这能体现 IDE 的健壮性
+            // 不过 JGit 的 add() 主要还Yes看 .gitignore，所以这里我们确保 .gitignore 存在
             val ignoreFile = File(rootDir, ".gitignore")
             if (!ignoreFile.exists()) {
                 ignoreFile.writeText(DEFAULT_GITIGNORE)
@@ -247,7 +247,7 @@ class GitManager(projectPath: String) {
      * 测试连接 (ls-remote)
      */
     suspend fun testConnectivity(url: String, auth: GitAuth): String = withContext(Dispatchers.IO) {
-        Log.i(TAG, ">>> 开始测试连接: $url")
+        Log.i(TAG, ">>> On始测试连接: $url")
         try {
             val cmd = Git.lsRemoteRepository()
                 .setRemote(url)
@@ -268,11 +268,11 @@ class GitManager(projectPath: String) {
             Log.e(TAG, "❌ 连接测试失败", e)
             val msg = e.message ?: e.toString()
             return@withContext when {
-                msg.contains("401") -> "认证失败: Token 无效或过期"
+                msg.contains("401") -> "认证失败: Token None效或过期"
                 msg.contains("not found") -> "仓库不存在"
                 msg.contains("timeout") || msg.contains("abort") -> "网络连接超时/中断"
-                msg.contains("UnknownHost") -> "无法解析域名 (检查网络)"
-                msg.contains("No user home") -> "SSH环境初始化失败 (PathUtils未设置)"
+                msg.contains("UnknownHost") -> "None法解析域名 (检查网络)"
+                msg.contains("No user home") -> "SSH环境Initialization failed (PathUtils未Settings)"
                 else -> "连接失败: $msg"
             }
         }
@@ -282,12 +282,12 @@ class GitManager(projectPath: String) {
      * 添加远程仓库 (包含 Fetch 规则修复)
      */
     suspend fun addRemote(name: String, url: String) = withContext(Dispatchers.IO) {
-        Log.i(TAG, "设置 Remote: $name -> $url")
+        Log.i(TAG, "Settings Remote: $name -> $url")
         val git = Git.open(rootDir)
         val config = git.repository.config
 
         config.setString("remote", name, "url", url)
-        // 关键：写入 fetch 规则，否则 pull 会失败
+        // Off键：写入 fetch 规则，No则 pull 会失败
         val fetchSpec = "+refs/heads/*:refs/remotes/$name/*"
         config.setString("remote", name, "fetch", fetchSpec)
 
@@ -297,28 +297,28 @@ class GitManager(projectPath: String) {
     }
 
     /**
-     * 推送 (强制推送 Force Push)
+     * Push (强制Push Force Push)
      */
     /**
-     * 推送 (Push) - 包含 "硬强制" (+RefSpec) 修复
+     * Push (Push) - 包含 "硬强制" (+RefSpec) 修复
      */
     suspend fun push(auth: GitAuth, remote: String = "origin") = withContext(Dispatchers.IO) {
         Log.i(TAG, ">>> PUSH (FORCE+) Start <<<")
         val git = Git.open(rootDir)
-        val currentBranch = git.repository.branch ?: throw Exception("未处于任何分支")
+        val currentBranch = git.repository.branch ?: throw Exception("未matches于任何Branch")
 
         // 🔥🔥🔥 核心修改：手动加 "+" 号 🔥🔥🔥
         // 加了 + 号，等于告诉 Git："不管远程有什么，直接用我的覆盖它！"
         // 这种写法比 setForce(true) 更底层、更有效。
         val refSpecStr = "+refs/heads/$currentBranch:refs/heads/$currentBranch"
 
-        Log.i(TAG, "使用强力推送规则: $refSpecStr")
+        Log.i(TAG, "使用强力Push规则: $refSpecStr")
         val spec = RefSpec(refSpecStr)
 
         val cmd = git.push()
             .setRemote(remote)
             .setRefSpecs(spec)
-        // .setForce(true) // 有了上面的 + 号，这一行其实可以省略，但留着也没坏处
+        // .setForce(true) // 有了上面的 + 号，这一行其实可以省略，但留着也没坏matches
 
         if (auth.type == AuthType.HTTPS) {
             cmd.setCredentialsProvider(UsernamePasswordCredentialsProvider(auth.username, auth.token))
@@ -333,9 +333,9 @@ class GitManager(projectPath: String) {
 
             for (result in results) {
                 for (update in result.remoteUpdates) {
-                    Log.i(TAG, "分支 [${update.remoteName}] -> ${update.status}")
+                    Log.i(TAG, "Branch [${update.remoteName}] -> ${update.status}")
 
-                    // 只要状态是 OK, UP_TO_DATE 或者 FORCED_UPDATE 都算成功
+                    // 只要状态Yes OK, UP_TO_DATE 或者 FORCED_UPDATE 都算成功
                     if (update.status == RemoteRefUpdate.Status.OK ||
                         update.status == RemoteRefUpdate.Status.UP_TO_DATE ||
                         update.status == RemoteRefUpdate.Status.OK) {
@@ -350,7 +350,7 @@ class GitManager(projectPath: String) {
             Log.i(TAG, "✅ Push 成功")
 
         } catch (e: Exception) {
-            // 过滤掉偶尔的网络断开错误，因为你之前的日志显示网络不稳定
+            // 过滤掉偶尔的网络断OnError，因为你之前的Log显示网络不稳定
             if (e.message?.contains("Software caused connection abort") == true) {
                 Log.w(TAG, "网络波动，请重试...")
                 throw Exception("网络连接中断，请重试")
@@ -361,7 +361,7 @@ class GitManager(projectPath: String) {
             git.close()
         }
     }
-    // 🔥🔥🔥 新增核心方法：获取文件在 HEAD (最新提交) 中的内容 🔥🔥🔥
+    // 🔥🔥🔥 Added核心方法：获取File在 HEAD (最新Commit) 中的内容 🔥🔥🔥
     suspend fun getFileContentAtHead(filePath: String): String = withContext(Dispatchers.IO) {
         if (!isGitRepo()) return@withContext ""
         val git = Git.open(rootDir)
@@ -375,22 +375,22 @@ class GitManager(projectPath: String) {
             val commit = revWalk.parseCommit(headId)
             val tree = commit.tree
 
-            // 2. 计算仓库相对路径
-            // 如果 filePath 是绝对路径，转换为相对路径
+            // 2. 计算仓库相对Path
+            // 如果 filePath Yes绝对Path，转换为相对Path
             val relativePath = if (filePath.startsWith(rootDir.absolutePath)) {
                 filePath.substring(rootDir.absolutePath.length + 1).replace("\\", "/")
             } else {
                 filePath
             }
 
-            // 3. 遍历 Tree 查找文件
+            // 3. 遍历 Tree FindFile
             val treeWalk = TreeWalk(repo)
             treeWalk.addTree(tree)
             treeWalk.isRecursive = true
             treeWalk.filter = PathFilter.create(relativePath)
 
             if (!treeWalk.next()) {
-                // 文件在 HEAD 中不存在（可能是新添加的文件）
+                // File在 HEAD 中不存在（可能Yes新添加的File）
                 return@withContext ""
             }
 

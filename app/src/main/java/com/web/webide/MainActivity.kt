@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
             val themeViewModel: ThemeViewModel = viewModel(factory = ThemeViewModelFactory(context))
             val themeState by themeViewModel.themeState.collectAsState()
 
-            // 日志配置
+            // Log配置
             val logConfigRepository = remember { LogConfigRepository(context) }
             val logConfigState by logConfigRepository.logConfigFlow.collectAsState(
                 initial = LogConfigState()
@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                 if (logConfigState.isLoaded) {
                     // ✅ 改动: 调用 updateConfig 来动态更新配置
                     LogCatcher.updateConfig(logConfigState)
-                    LogCatcher.i("MainActivity", "日志系统配置已更新 - 启用: ${logConfigState.isLogEnabled}")
+                    LogCatcher.i("MainActivity", "Log系统配置已更新 - 启用: ${logConfigState.isLogEnabled}")
                 }
             }
 
@@ -119,9 +119,9 @@ class MainActivity : ComponentActivity() {
                                 WelcomeScreen(
                                     themeViewModel = themeViewModel,
                                     onWelcomeFinished = { 
-                                        // ✅ 核心改动 3: 在欢迎流程结束时，标记为已完成
+                                        // ✅ 核心改动 3: 在欢迎流程结束时，标记为已Done
                                         WelcomePreferences.setWelcomeCompleted(context)
-                                        LogCatcher.i("MainActivity", "欢迎流程完成，进入主应用")
+                                        LogCatcher.i("MainActivity", "欢迎流程Done，进入主Apply")
                                         showWelcomeScreen = false 
                                     }
                                 )

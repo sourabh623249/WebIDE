@@ -83,25 +83,25 @@ fun WelcomeScreen(
 
     // --- WelcomeScreen.kt 中的逻辑修复 ---
 
-// 1. 计算当前预览的主题数据
+// 1. 计算当前Preview的Theme数据
     val currentPreviewTheme: ThemeColor? = remember(selectedThemeIndex, customColor, isMonetEnabled, isDarkTheme) {
         if (isMonetEnabled) {
             null
         } else if (selectedThemeIndex < themeColors.size) {
             themeColors[selectedThemeIndex]
         } else {
-            // [自定义模式]
-            // 1. 确定背景色：深色用纯黑微亮，浅色用纯白微灰
+            // [Custom模式]
+            // 1. OK背景色：Dark用纯黑微亮，Light用纯白微灰
             val bgDark = Color(0xFF121212)
             val bgLight = Color(0xFFF8F9FA) // 稍微带一点灰，避免瞎眼
 
-            // 2. 关键点：把 customColor 塞给 Primary 和 Accent
-            // 这样 WelcomeBackground 里的光球就能读到你的自定义颜色了！
+            // 2. Off键点：把 customColor 塞给 Primary 和 Accent
+            // 这样 WelcomeBackground 里的光球就能读到你的Custom Color了！
             val customSpecDark = ThemeColorSpec(
                 background = bgDark,
                 surface = Color(0xFF1E1E1E),
                 primary = customColor,
-                accent = customColor // 让两个光球都是你的自定义色，或者让第二个球稍微变淡一点
+                accent = customColor // 让两个光球都Yes你的Custom色，或者让第二个球稍微变淡一点
             )
             val customSpecLight = ThemeColorSpec(
                 background = bgLight,
@@ -121,7 +121,7 @@ fun WelcomeScreen(
         val theme = themeColors[selectedThemeIndex]
         if (isDarkTheme) theme.dark.background else theme.light.background
     } else {
-        // 自定义颜色模式：如果选了自定义，背景使用 Theme.kt 逻辑生成的颜色
+        // Custom Color模式：如果选了Custom，背景使用 Theme.kt 逻辑生成的颜色
         MaterialTheme.colorScheme.background
     }
 
@@ -155,9 +155,9 @@ fun WelcomeScreen(
                 // 计算底部导航栏的高亮色
                 val activeColor = when {
                     isMonetEnabled -> MaterialTheme.colorScheme.primary
-                    // 如果是自定义模式 (index == size)，直接用 customColor
+                    // 如果YesCustom模式 (index == size)，直接用 customColor
                     selectedThemeIndex == themeColors.size -> customColor
-                    // 否则用主题色
+                    // No则用Theme色
                     else -> if (isDarkTheme) themeColors[selectedThemeIndex].dark.primary else themeColors[selectedThemeIndex].light.primary
                 }
 
@@ -237,7 +237,7 @@ fun WelcomeScreen(
     }
 }
 
-// --- 页面 1: Intro ---
+// --- Page 1: Intro ---
 @Composable
 private fun IntroContent() {
     Box(
@@ -264,7 +264,7 @@ private fun IntroContent() {
     }
 }
 
-// --- 页面 2: Permissions ---
+// --- Page 2: Permissions ---
 @Composable
 private fun PermissionsContent(
     storageGranted: Boolean,
@@ -280,12 +280,12 @@ private fun PermissionsContent(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            "必要权限",
+            "必要Permission",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "WebIDE 需要以下权限来读写代码和运行应用。",
+            "WebIDE needs the following permissions to read/write code and run apps.",
             style = MaterialTheme.typography.bodyMedium,
             color = LocalContentColor.current.copy(alpha = 0.8f)
         )
@@ -295,15 +295,15 @@ private fun PermissionsContent(
         PermissionCard(
             Icons.Default.Folder,
             "存储空间",
-            "用于访问和保存项目文件",
+            "用于访问和Save项目File",
             storageGranted,
             onRequestStoragePermission
         )
         Spacer(Modifier.height(12.dp))
         PermissionCard(
             Icons.Default.Download,
-            "应用安装",
-            "安装构建好的 APK 文件",
+            "ApplyInstall",
+            "Install built APK files",
             installGranted,
             onRequestInstallPermission
         )
@@ -323,7 +323,7 @@ private fun ThemeSetupContent(
     onThemeSelected: (Int) -> Unit,
     onCustomColorClick: () -> Unit
 ) {
-    val modeOptions = listOf("跟随系统", "浅色", "深色")
+    val modeOptions = listOf("Follow System", "Light", "Dark")
 
     // 1. 父容器去掉 padding，只保留垂直滚动
     Column(
@@ -332,11 +332,11 @@ private fun ThemeSetupContent(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
-        // 2. 给内部元素单独加 Padding
+        // 2. Add padding to inner elements individually
         Text(
             "外观风格",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(horizontal = 24.dp) // <--- 这里加
+            modifier = Modifier.padding(horizontal = 24.dp) // <--- add here
         )
         Spacer(Modifier.height(32.dp))
 
@@ -344,7 +344,7 @@ private fun ThemeSetupContent(
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp) // <--- 这里加
+                .padding(horizontal = 24.dp) // <--- add here
         ) {
             modeOptions.forEachIndexed { index, label ->
                 SegmentedButton(
@@ -365,7 +365,7 @@ private fun ThemeSetupContent(
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ListItem(
-                headlineContent = { Text("动态取色 (Monet)") },
+                headlineContent = { Text("Dynamic Color (Monet)") },
                 trailingContent = { Switch(checked = isMonetEnabled, onCheckedChange = onMonetToggle) },
                 colors = ListItemDefaults.colors(
                     containerColor = Color.Transparent,
@@ -376,18 +376,18 @@ private fun ThemeSetupContent(
             )
         }
 
-        // 3. 主题列表：改用 LazyRow 修复截断问题
+        // 3. Theme列表：改用 LazyRow 修复截断问题
         AnimatedVisibility(visible = !isMonetEnabled) {
             Column {
                 Spacer(Modifier.height(24.dp))
 
                 // 使用 LazyRow 代替 Row + Scroll
                 LazyRow(
-                    // 关键点：contentPadding 让内容可以滚到屏幕边缘，但起始位置有缩进
+                    // Off键点：contentPadding 让内容可以滚到屏幕边缘，但起始Location有缩进
                     contentPadding = PaddingValues(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 渲染预设主题
+                    // 渲染Preset Themes
                     itemsIndexed(themeColors) { index, theme ->
                         ThemePreviewCard(
                             theme = theme,
@@ -397,7 +397,7 @@ private fun ThemeSetupContent(
                         )
                     }
 
-                    // 渲染自定义按钮
+                    // 渲染Custom按钮
                     item {
                         CustomThemeCard(
                             isSelected = selectedThemeIndex == themeColors.size,

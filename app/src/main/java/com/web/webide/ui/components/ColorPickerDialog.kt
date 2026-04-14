@@ -73,7 +73,7 @@ fun ColorPickerDialog(
 
     val currentColor = Color.hsv(hue, saturation, value, alpha)
 
-    // Hex 输入框状态 (透明度为1时只显示6位)
+    // Hex 输入框状态 (Opacity为1时只显示6位)
     var hexInput by remember(currentColor) {
         val isOpaque = currentColor.alpha >= 0.999f
         mutableStateOf(colorToHex(currentColor, !isOpaque).removePrefix("#"))
@@ -93,7 +93,7 @@ fun ColorPickerDialog(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
-                // --- 1. 顶部：HEX 输入 + 预览 ---
+                // --- 1. 顶部：HEX 输入 + Preview ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,7 +147,7 @@ fun ColorPickerDialog(
                         )
                     }
 
-                    // 预览方块 (修改为方形圆角 8.dp)
+                    // Preview方块 (修改为方形圆角 8.dp)
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -206,7 +206,7 @@ fun ColorPickerDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // --- 3. 透明度滑块 (横向) ---
+                // --- 3. Opacity滑块 (横向) ---
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -280,10 +280,10 @@ fun ColorPickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = { onColorSelected(currentColor) }) {
-                        Text("确定")
+                        Text("OK")
                     }
                 }
             }
@@ -311,7 +311,7 @@ private fun ColorInputRow(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
                 .width(36.dp)
-                // ▼▼▼ 修改处：添加顶部内边距，避开右侧的小标题高度 ▼▼▼
+                // ▼▼▼ 修改matches：添加顶部内边距，避On右侧的小标题高度 ▼▼▼
                 .padding(top = 14.dp)
         )
         Row(
@@ -424,7 +424,7 @@ private fun VerticalHueSlider(
     }
 }
 
-// --- 组件：横向透明度滑块 ---
+// --- 组件：横向Opacity滑块 ---
 @Composable
 private fun HorizontalAlphaSlider(
     alpha: Float,

@@ -66,7 +66,7 @@ class ScrollSynchronizer {
     private var rightEditor: CodeEditor? = null
     private val receipts = ArrayList<SubscriptionReceipt<*>>()
 
-    // 0 = 无/未知, 1 = 左控右, 2 = 右控左
+    // 0 = None/未知, 1 = 左控右, 2 = 右控左
     // 默认为 0，只有当用户触摸某一边时，该边才成为 Driver
     private var activeDriver = 0
 
@@ -83,7 +83,7 @@ class ScrollSynchronizer {
         val left = leftEditor ?: return
         val right = rightEditor ?: return
 
-        // 开启缩放功能
+        // On启缩放功能
         left.isScalable = true
         right.isScalable = true
 
@@ -100,7 +100,7 @@ class ScrollSynchronizer {
                         scroller.forceFinished(true)
                     }
                 }
-                false // 不消费事件，交给 Editor 内部处理
+                false // 不消费事件，交给 Editor 内部matches理
             }
         }
 
@@ -109,16 +109,16 @@ class ScrollSynchronizer {
 
         // 2. Scroll 监听：Master -> Slave 绝对坐标同步
         // 修正：使用 scroller.startScroll() 而非简单的 scrollTo()
-        // 原因：用户反馈“editor本身在移动”，这通常是因为直接调用 View.scrollTo() 导致
-        // View 的视口位置与 Editor 内部 Scroller (OverScroller) 的状态不同步。
-        // 当用户随后触摸 Slave 编辑器时，Scroller 会从旧位置（通常是 0）开始，导致跳变。
-        // 使用 startScroll(x, y, 0, 0, 0) 可以同时更新 View 位置和 Scroller 状态，
+        // 原因：用户Feedback“editor本身在移动”，这通常Yes因为直接调用 View.scrollTo() 导致
+        // View 的视口Location与 Editor 内部 Scroller (OverScroller) 的状态不同步。
+        // 当用户随后触摸 Slave 编辑器时，Scroller 会从旧Location（通常Yes 0）On始，导致跳变。
+        // 使用 startScroll(x, y, 0, 0, 0) 可以同时更新 View Location和 Scroller 状态，
         // 实现真正的“内部滚动操作”同步。
         val scrollListener = { id: Int, target: CodeEditor ->
             android.view.View.OnScrollChangeListener { _, scrollX, scrollY, _, _ ->
                 if (activeDriver == id) {
                     val scroller = target.eventHandler.scroller
-                    // 只有当位置真正改变时才同步，避免循环调用（虽然 activeDriver 已防护）
+                    // 只有当Location真正改变时才同步，避免循环调用（虽然 activeDriver 已防护）
                     // 注意：这里我们强制同步 Scroller 的状态
                     if (scroller.currX != scrollX || scroller.currY != scrollY) {
                         // duration = 0 表示瞬时跳转，但更新了 Scroller 内部状态
@@ -158,11 +158,11 @@ class ScrollSynchronizer {
         receipts.clear()
         
         // SoraEditor 的事件订阅系统没有直接的 "unsubscribeAll"，但我们重新创建实例时会丢弃旧对象
-        // 如果要严谨，应该保存 SubscriptionReceipt 并取消订阅，但这里我们简化处理，
-        // 依赖 Garbage Collection，因为 SubscriptionReceipt 是强引用
-        // 更好的做法是保存 receipts 列表并在 unbind 时 unsubscribe
+        // 如果要严谨，应该Save SubscriptionReceipt 并Cancel订阅，但这里我们简化matches理，
+        // 依赖 Garbage Collection，因为 SubscriptionReceipt Yes强引用
+        // 更好的做法YesSave receipts 列表并在 unbind 时 unsubscribe
         // 但在这个简单的 Synchronizer 生命周期中，直接置空引用通常足够，
-        // 除非 CodeEditor 也是长生命周期的（在这个 Compose 场景中是每次重组可能变化）
+        // 除非 CodeEditor 也Yes长生命周期的（在这个 Compose 场景中Yes每次重组可能变化）
     }
 }
 
@@ -189,7 +189,7 @@ fun DiffViewer(
     modifier: Modifier = Modifier
 ) {
     // 异步计算差异
-    // 使用 state 作为 key，确保切换文件时重置，但修改内容时不重置 (防止闪烁)
+    // 使用 state 作为 key，确保切换File时重置，但修改内容时不重置 (防止闪烁)
     var diffData by remember(state) {
         mutableStateOf<AlignedDiffResult?>(null)
     }
@@ -300,7 +300,7 @@ fun SplitDiffView(
             synchronizer.setEditors(leftEditorRef, rightEditorRef)
         }
         onDispose {
-            // 组件销毁时可以在这里做清理，或者由 Synchronizer 内部处理
+            // 组件销毁时可以在这里做清理，或者由 Synchronizer 内部matches理
             // synchronizer.unbind()
         }
     }
@@ -417,13 +417,13 @@ fun DiffEditorInstance(
 ) {
     val editorConfig = viewModel.editorConfig
 
-    // 状态标志，防止无限循环
-    // 使用 remember 保存一个 MutableState，在 AndroidView 内部访问
+    // 状态标志，防止None限循环
+    // 使用 remember Save一个 MutableState，在 AndroidView 内部访问
     val isUpdatingRef = remember { mutableStateOf(false) }
     // 记录上一次用户输入的时间，用于防抖
     val lastUserInputTime = remember { mutableLongStateOf(0L) }
 
-    // 修复：使用 rememberUpdatedState 确保回调始终是最新的
+    // 修复：使用 rememberUpdatedState 确保回调始终Yes最新的
     val currentOnContentChanged by rememberUpdatedState(onContentChanged)
 
     val currentColorScheme = MaterialTheme.colorScheme
@@ -437,8 +437,8 @@ fun DiffEditorInstance(
 
                 // --- 基础 ---
                 isEditable = !readOnly
-                isFocusable = true // 必须开启
-                isHighlightCurrentLine = true // 始终显示当前行高亮，即使在只读模式下
+                isFocusable = true // 必须On启
+                isHighlightCurrentLine = true // 始终显示当前Line Height亮，即使在只读模式下
 
                 // Remove zoom limits
                 setScaleTextSizes(2f, 100f)
@@ -449,20 +449,20 @@ fun DiffEditorInstance(
 
 
                 // --- 核心优化 ---
-                // 1. 关闭换行：保证每一行的“高度”绝对一致，防止左右行高错位
+                // 1. Close换行：保证每一行的“高度”绝对一致，防止左右Line Height错位
                 isWordwrap = false
 
                 // 2. 移除边缘光晕：防止同步时一边闪蓝光一边不闪，影响视觉流畅度
                 overScrollMode = android.view.View.OVER_SCROLL_NEVER
 
-                // 3. 字体强制等宽：这是对齐的基础
+                // 3. Font强制等宽：这YesAlign的基础
                 typefaceText = android.graphics.Typeface.MONOSPACE
                 typefaceLineNumber = android.graphics.Typeface.MONOSPACE
 
-                // 4. 设置字号和Tab：必须完全一致
+                // 4. SettingsFont Size和Tab：必须完全一致
                 tabWidth = editorConfig.tabWidth
 
-                // 初始语言设置
+                // 初始LanguageSettings
                 try {
                     viewModel.applyLanguageToEditor(this, java.io.File(fileName).extension)
                 } catch (_: Exception) {}
@@ -475,7 +475,7 @@ fun DiffEditorInstance(
                     override fun afterInsert(content: Content, startLine: Int, startColumn: Int, endLine: Int, endColumn: Int, inserted: CharSequence) {
                         if (!isUpdatingRef.value) {
                             lastUserInputTime.longValue = System.currentTimeMillis()
-                            // 过滤掉 Diff 对齐用的占位符 (\u200B)
+                            // 过滤掉 Diff Align用的占位符 (\u200B)
                             // 1. 先移除整行占位符 (防止产生空行)
                             // 2. 再移除残留的占位符 (防止用户编辑了占位行)
                             val cleanText = text.toString()
@@ -487,7 +487,7 @@ fun DiffEditorInstance(
                     override fun afterDelete(content: Content, startLine: Int, startColumn: Int, endLine: Int, endColumn: Int, deleted: CharSequence) {
                         if (!isUpdatingRef.value) {
                             lastUserInputTime.longValue = System.currentTimeMillis()
-                            // 过滤掉 Diff 对齐用的占位符 (\u200B)
+                            // 过滤掉 Diff Align用的占位符 (\u200B)
                             val cleanText = text.toString()
                                 .replace("\u200B\n", "")
                                 .replace("\u200B", "")
@@ -500,13 +500,13 @@ fun DiffEditorInstance(
             }
         },
         update = { editor ->
-            // 确保每次重组时都更新主题色，以响应系统主题变化
+            // 确保每次重组时都更新Theme色，以响应系统Theme变化
             EditorColorSchemeManager.applyThemeColors(editor.colorScheme, currentColorScheme)
 
-            // 确保语言设置正确 (Fix: 防止重组后语言丢失或未更新)
+            // 确保LanguageSettings正确 (Fix: 防止重组后Language丢失或未更新)
             try {
                 val currentExt = java.io.File(fileName).extension
-                // 这里可以优化：检查当前 editorLanguage 是否匹配，不匹配再设置
+                // 这里可以优化：检查当前 editorLanguage YesNo匹配，不匹配再Settings
                 // 但 EditorViewModel.applyLanguageToEditor 内部有缓存/检查机制，直接调用通常安全
                 viewModel.applyLanguageToEditor(editor, currentExt)
             } catch (_: Exception) {}
@@ -515,18 +515,18 @@ fun DiffEditorInstance(
                 editor.isEditable = !readOnly
             }
 
-            // 确保 WordWrap 始终关闭 (Fix: 防止左侧自动换行)
+            // 确保 WordWrap 始终Close (Fix: 防止左侧Word Wrap)
             if (editor.isWordwrap) {
                 editor.isWordwrap = false
             }
 
-            // 只有内容真变了才 Set，防止重置位置
+            // 只有内容真变了才 Set，防止重置Location
             val contentChanged = editor.text.toString() != content
             // 防抖：如果用户最近在输入（1000ms内），则不要强制覆盖内容，除非内容差异巨大（这里简化为只看时间）
-            // 注意：这会导致对齐暂时失效，但能保证输入流畅和保存成功
+            // 注意：这会导致Align暂时失效，但能保证输入流畅和Save成功
             val isUserTyping = (System.currentTimeMillis() - lastUserInputTime.longValue) < 1000
             
-            // 如果是只读模式，或者是第一次加载，或者不是用户正在输入，则更新
+            // 如果Yes只读模式，或者Yes第一次加载，或者不Yes用户正在输入，则更新
             if (contentChanged && (readOnly || !isUserTyping)) {
                 isUpdatingRef.value = true
                 try {
@@ -539,12 +539,12 @@ fun DiffEditorInstance(
                     
                     editor.setText(content)
                     
-                    // 尝试恢复光标位置
+                    // 尝试Restore光标Location
                     if (line < editor.text.lineCount) {
                          editor.setSelection(line, column.coerceAtMost(editor.text.getColumnCount(line)))
                     }
                     
-                    // 恢复滚动位置 (Fix: 防止左侧编辑器跳动)
+                    // Restore滚动Location (Fix: 防止左侧编辑器跳动)
                     if (!scroller.isFinished) scroller.forceFinished(true)
                     scroller.startScroll(scrollX, scrollY, 0, 0, 0)
                     editor.eventHandler.notifyScrolled()

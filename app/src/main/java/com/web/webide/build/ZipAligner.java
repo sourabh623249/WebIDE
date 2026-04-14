@@ -59,7 +59,7 @@ public class ZipAligner {
                 // 读取数据
                 byte[] data = readEntryData(zipFile, entry);
 
-                // 2. 创建全新的 Entry，不拷贝旧属性，防止带入未知 Extra 字段
+                // 2. 创建全新的 Entry，不拷贝旧Properties，防止带入未知 Extra 字段
                 ZipEntry newEntry = new ZipEntry(name);
 
                 boolean isArsc = name.equals("resources.arsc");
@@ -75,34 +75,34 @@ public class ZipAligner {
                     newEntry.setMethod(ZipEntry.DEFLATED);
                 }
 
-                // 3. 核心对齐计算
+                // 3. 核心Align计算
                 if (newEntry.getMethod() == ZipEntry.STORED) {
-                    // 获取当前文件写入位置 (即 LFH 开始位置)
+                    // 获取当前File写入Location (即 LFH On始Location)
                     long currentPos = counter.getBytesWritten();
 
                     byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
                     int nameLen = nameBytes.length;
 
                     // 计算标准 Header 长度:
-                    // LFH固定头(30) + 文件名长度 + 额外字段头(4, 即ID+Size)
+                    // LFH固定头(30) + Filename长度 + 额外字段头(4, 即ID+Size)
                     long headerLenWithoutPadding = 30 + nameLen + 4;
 
-                    // 预测数据开始位置
+                    // 预测数据On始Location
                     long predictedDataStart = currentPos + headerLenWithoutPadding;
 
                     // 计算需要的填充字节数
                     int padding = (int) ((ALIGNMENT - (predictedDataStart % ALIGNMENT)) % ALIGNMENT);
 
-                    // 【关键修复】如果 padding 为 0，签名库可能会删除这个空的 Extra 块
-                    // 导致文件头长度变短，破坏结构。
-                    // 我们强制加 4 字节填充（依然保持 4 对齐），确保 Extra 字段有实体内容。
+                    // 【Off键修复】如果 padding 为 0，Sign库可能会Delete这个空的 Extra 块
+                    // 导致File头长度变短，破坏结构。
+                    // 我们强制加 4 字节填充（依然保持 4 Align），确保 Extra 字段有实体内容。
                     if (padding == 0) {
                         padding = 4;
                     }
 
 
                     if (isArsc) {
-                        LogCatcher.i("ZipAligner", "正在对齐 resources.arsc | StartPos: " + currentPos + " | Padding: " + padding);
+                        LogCatcher.i("ZipAligner", "Aligning... resources.arsc | StartPos: " + currentPos + " | Padding: " + padding);
                     }
 
                     // 构造 Extra Field (zipalign ID: 0xD935)

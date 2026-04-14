@@ -30,18 +30,18 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 object BackupUtils {
-    // 保留最近 5 个备份
+    // 保留最近 5 个Backup
     private const val MAX_BACKUP_COUNT = 5
 
     /**
-     * 备份项目：打包成 ZIP 存入私有目录
+     * Backup项目：打包成 ZIP 存入私有目录
      */
     suspend fun backupProject(context: Context, projectPath: String): String = withContext(Dispatchers.IO) {
         val projectDir = File(projectPath)
         if (!projectDir.exists()) return@withContext "项目不存在"
 
         val folderName = projectDir.name
-        // 私有目录: /data/data/包名/files/project_backups/项目名/
+        // 私有目录: /data/data/Package Name/files/project_backups/项目名/
         val backupRootDir = File(context.filesDir, "project_backups/$folderName")
         if (!backupRootDir.exists()) backupRootDir.mkdirs()
 
@@ -88,7 +88,7 @@ object BackupUtils {
         val files = backupDir.listFiles { _, name -> name.endsWith(".zip") } ?: return
         if (files.size > MAX_BACKUP_COUNT) {
             files.sortBy { it.lastModified() }
-            // 删除最旧的几个
+            // Delete最旧的几个
             files.take(files.size - MAX_BACKUP_COUNT).forEach { it.delete() }
         }
     }

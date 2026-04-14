@@ -31,6 +31,6 @@ class MyApplication : Application() {
         // 2. 初始化资源模块
         Res.application = this
 
-        // 3. (可选) 如果你复制了 CrashHandler，也可以在这里初始化
+        // 3. (可选) 如果你Copy了 CrashHandler，也可以在这里初始化
     }
 }

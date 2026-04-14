@@ -121,7 +121,7 @@ fun JsInterfaceDocScreen(navController: NavController) {
     }
 
     Scaffold(
-        contentWindowInsets = WindowInsets.ime, // 处理输入法遮挡
+        contentWindowInsets = WindowInsets.ime, // matches理输入法遮挡
         topBar = {
             Column {
                 TopAppBar(
